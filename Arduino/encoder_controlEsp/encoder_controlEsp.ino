@@ -1,10 +1,28 @@
 #include <PID_v1.h>
 
-#define ENCODER_A 32 
-#define ENCODER_B 33 
-#define in1 18
-#define in2 19
-#define pwm1 21
+#define ENCODER_A 23
+#define ENCODER_B 22
+// #define ENCODER_A1 1
+// #define ENCODER_B1 3
+#define ENCODER_A2 19
+#define ENCODER_B2 18
+#define ENCODER_A3 5
+#define ENCODER_B3 17
+
+#define inA 27
+#define inB 14
+#define inA1 12
+#define inB1 13
+#define inA2 17
+#define inB2 16
+#define inA3 4
+#define inB3 0
+
+
+#define pwm0 32
+#define pwm1 33
+#define pwm2 25
+#define pwm3 26
 
 int prvEncoder = 0;  
 int speed = 0;  
@@ -36,8 +54,8 @@ void setup() {
   Setpoint = 100;  
   myPID.SetMode(AUTOMATIC);
 
-  pinMode(in1, OUTPUT);
-  pinMode(in2, OUTPUT);
+  pinMode(inA, OUTPUT);
+  pinMode(inB, OUTPUT);
   pinMode(pwm1, OUTPUT);
 
   Serial.begin(115200); 
@@ -74,15 +92,15 @@ void loop() {
 void run(bool direction) {
   Input = filteredSpeed;  
   if (direction == 0){
-    digitalWrite(in1, HIGH);
-    digitalWrite(in2, LOW);
+    digitalWrite(inA, HIGH);
+    digitalWrite(inB, LOW);
     myPID.Compute();  
-    analogWrite(pwm1, Output); 
+    analogWrite(pwm0, Output); 
   }
   else {
-    digitalWrite(in1, LOW);
-    digitalWrite(in2, HIGH);
+    digitalWrite(inA, LOW);
+    digitalWrite(inB, HIGH);
     myPID.Compute();  
-    analogWrite(pwm1, Output); 
+    analogWrite(pwm0, Output); 
   }
 }
