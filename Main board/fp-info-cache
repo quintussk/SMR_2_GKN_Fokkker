@@ -1,4 +1,4 @@
-24201817581448445
+24191045944400985
 Audio_Module
 Reverb_BTDR-1H
 Digital Reverberation Unit, http://www.belton.co.kr/inc/downfile.php?seq=17&file=pdf (footprint from http://www.uk-electronic.de/PDF/BTDR-1.pdf)
@@ -363,13 +363,6 @@ battery CR-3032 coin cell vertical
 0
 2
 2
-Buck converter
-UBEC
-
-
-0
-0
-0
 Button_Switch_Keyboard
 SW_Cherry_MX_1.00u_PCB
 Cherry MX keyswitch, 1.00u, PCB mount, http://cherryamericas.com/wp-content/uploads/2014/12/mx_cat.pdf
@@ -64042,13 +64035,6 @@ solder jumper open
 0
 5
 3
-L298N_Module
-L298N
-
-
-0
-13
-13
 LED_SMD
 LED-APA102-2020
 http://www.led-color.com/upload/201604/APA102-2020%20SMD%20LED.pdf
@@ -65253,6 +65239,13 @@ Yellow 5381 Series LED
 0
 2
 2
+Library
+MODULE_ESP32-DEVKITC-32D
+
+
+0
+38
+38
 Module
 A20_OLINUXINO_LIME2
 A20 Olinuxino LIME2, 1.2GHz, 512-1024MB RAM, Micro-SD, NAND or eMMC, 1000Mbit Ethernet
@@ -86456,13 +86449,6 @@ Potentiometer vertical vishay
 0
 3
 3
-RASPBERRY_PI_4B_4GB
-MODULE_RASPBERRY_PI_4B_4GB
-
-
-0
-48
-48
 RF
 Skyworks_SKY13575_639LF
 http://www.skyworksinc.com/uploads/documents/SKY13575_639LF_203270D.pdf
@@ -97985,3 +97971,10 @@ Varistor VF
 0
 2
 2
+module
+mpu 6050
+
+
+0
+0
+0
