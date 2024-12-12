@@ -1,6 +1,12 @@
 import cv2
 import numpy as np
+import os
+
 url = "http://192.168.0.100:8080/video"
+
+# Directory to save captured images
+save_path = "./vision/image"
+os.makedirs(save_path, exist_ok=True)
 
 # Function to detect and label red blobs
 def detect_red(frame):
@@ -28,16 +34,18 @@ def detect_red(frame):
             x, y, w, h = cv2.boundingRect(contour)
             cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
             # Label the blob
-            cv2.putText(frame, f'Red Blob {i+1}', (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+            cv2.putText(frame, f'Red Blob {i+1}', (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.3, (0, 255, 0), 1)
 
     return frame, red_mask
 
 # Start live camera feed
-cap = cv2.VideoCapture(url)  # 0 for the default camera; use 1, 2, etc., for other cameras
+cap = cv2.VideoCapture(url)
 
 if not cap.isOpened():
     print("Error: Could not access the camera.")
     exit()
+
+image_count = 0
 
 while True:
     ret, frame = cap.read()  # Capture frame-by-frame
@@ -52,9 +60,18 @@ while True:
     cv2.imshow("Live Feed", labeled_frame)
     cv2.imshow("Red Mask", mask)
 
+    key = cv2.waitKey(1) & 0xFF
+    
     # Press 'q' to exit the loop
-    if cv2.waitKey(1) & 0xFF == ord('q'):
+    if key == ord('q'):
         break
+
+    # Press 'c' to capture and save the frame
+    if key == ord('c'):
+        image_path = os.path.join(save_path, f"capture_{image_count}.jpg")
+        cv2.imwrite(image_path, frame)
+        print(f"Image saved to {image_path}")
+        image_count += 1
 
 # Release the camera and close all windows
 cap.release()
