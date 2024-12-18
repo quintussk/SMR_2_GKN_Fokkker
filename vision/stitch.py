@@ -65,7 +65,7 @@ def stitch_images(images):
 
 
 def main():
-    folder = r"C:\Users\ihsan\Captured_Images"  # Path to the folder containing captured images
+    folder = r"C:\Users\ihsan\Documents\SMR_2_GKN_Fokkker\vision\image"  # Path to the folder containing captured images
     num_images = 3  # Number of images to load from the folder
 
     # Step 1: Load images from the folder
