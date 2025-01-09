@@ -1,63 +1,111 @@
-from flask import Flask, Response, render_template, request, jsonify
-import cv2
-from camera import Camera
-from arduino import ArduinoConnection
+import serial
+import time
 
-app = Flask(__name__)
+class ArduinoConnection:
+    def __init__(self, port, baudrate=9600, timeout=1):
+        try:
+            self.connection = serial.Serial(port=port, baudrate=baudrate, timeout=timeout)
+            time.sleep(2)  # Wacht even tot de verbinding stabiel is
+            print(f"Verbonden met Arduino op {port}")
+            self.direction1 = 0
+            self.speed1 = 0
+            self.direction2 = 0
+            self.speed2 = 0
+            self.request_values()
+        except serial.SerialException as e:
+            print(f"Kan geen verbinding maken met Arduino: {e}")
+            self.connection = None
 
-# Initialize the camera (0 is the default camera index)
-camera_feed = Camera() 
-arduino = ArduinoConnection(port="/dev/ttyACM0")
-
-@app.route('/video_feed')
-def video_feed():
-    # Return the video stream response
-    return Response(camera_feed.generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
-
-@app.route('/')
-def index():
-    return render_template('index.html')
-
-@app.route('/move', methods=['POST'])
-def move():
-    try:
-        data = request.get_json()
-        direction = data.get('direction')
-        if direction:
-            # Send the command to Arduino
-            print(direction)
-            arduino.move_manual(direction)
-            return jsonify({"status": "success", "message": f"Moved {direction}"})
+    def send_command(self, command):
+        """
+        Stuurt een commando naar de Arduino via de seriële verbinding.
+        """
+        if self.connection:
+            try:
+                self.connection.write(f"{command}\n".encode())
+                print(f"Commando '{command}' verzonden naar Arduino")
+            except Exception as e:
+                print(f"Fout bij het verzenden van commando: {e}")
         else:
-            return jsonify({"status": "error", "message": "No direction provided"}), 400
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-    
-@app.route('/adjust_speed', methods=['POST'])
-def adjust_speed():
-    try:
-        data = request.get_json()
-        print(f"Received data: {data}")  # Debugging
-        speed = data.get('speed')
-        if speed:
-            print(f"Adjusting speed: {speed}")
-            arduino.speed1
-            arduino.speed2
-            arduino.set_speed(speed)
-            return jsonify({"status": "success", "message": f"Speed adjusted to {speed}"})
-        else:
-            return jsonify({"status": "error", "message": "No speed provided"}), 400
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-    
-@app.route('/get_speeds', methods=['GET'])
-def get_speeds():
-    try:
-        speed1 = arduino.speed1  # Verkrijg snelheid 1
-        speed2 = arduino.speed2  # Verkrijg snelheid 2
-        return jsonify({"speed1": speed1, "speed2": speed2})
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
+            print("Geen actieve verbinding met Arduino")
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    def set_speed(self, speed_value):
+        if speed_value == "increase":
+            self.speed1 += 50
+            self.speed2 += 50
+        elif speed_value == "decrease":
+            self.speed1 -= 50
+            self.speed2 -= 50
+        self.speed1 = max(0, min(4000, self.speed1))
+        self.speed2 = max(0, min(4000, self.speed2))
+        self.send_command(f"SPD1:{self.speed1}")
+        self.send_command(f"SPD2:{self.speed2}")
+
+    def read_feedback(self):
+        """
+        Leest feedback van de Arduino en werkt de interne variabelen bij.
+        """
+        if self.connection and self.connection.in_waiting > 0:
+            try:
+                feedback = self.connection.readline().decode().strip()
+                print(f"Feedback ontvangen: {feedback}")
+                if feedback.startswith("Motor 1"):
+                    if "Direction = 1" in feedback:
+                        self.direction1 = 1
+                    elif "Direction = -1" in feedback:
+                        self.direction1 = -1
+                    if "Speed =" in feedback:
+                        self.speed1 = int(feedback.split("Speed = ")[1])
+                elif feedback.startswith("Motor 2"):
+                    if "Direction = 1" in feedback:
+                        self.direction2 = 1
+                    elif "Direction = -1" in feedback:
+                        self.direction2 = -1
+                    if "Speed =" in feedback:
+                        self.speed2 = int(feedback.split("Speed = ")[1])
+            except Exception as e:
+                print(f"Fout bij het lezen van feedback: {e}")
+
+    def request_values(self):
+        """
+        Vraagt de huidige waarden van de Arduino op en leest de feedback.
+        """
+        self.send_command("values")
+        time.sleep(0.1)  # Wacht even op de reactie
+        while self.connection.in_waiting > 0:
+            self.read_feedback()
+
+    def move_manual(self, direction):
+        """
+        Verplaatst handmatig de motors in een bepaalde richting.
+        """
+        if self.connection:
+            directions = {
+                'up': "DIR1:1\nDIR2:0",
+                'down': "DIR1:-1\nDIR2:0",
+                'left': "DIR2:1\nDIR1:0",
+                'right': "DIR2:-1\nDIR1:0",
+                'up-left': "DIR1:1\nDIR2:1",
+                'up-right': "DIR1:1\nDIR2:-1",
+                'down-left': "DIR1:-1\nDIR2:1",
+                'down-right': "DIR1:-1\nDIR2:-1",
+                'stop': "DIR1:0\nDIR2:0"
+            }
+            if direction in directions:
+                self.send_command(directions[direction])
+            else:
+                print("Ongeldige richting")
+
+    def close(self):
+        """
+        Sluit de seriële verbinding.
+        """
+        if self.connection:
+            self.connection.close()
+            print("Arduino verbinding gesloten")
+
+    def __del__(self):
+        """
+        Zorg ervoor dat de verbinding wordt gesloten bij het verwijderen van het object.
+        """
+        self.close()
