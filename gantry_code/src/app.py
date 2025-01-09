@@ -1,7 +1,7 @@
 from flask import Flask, Response, render_template, request, jsonify
 import cv2
 from camera import Camera
-from arduino import ArduinoConnection
+# from arduino import ArduinoConnection
 
 app = Flask(__name__)
 
