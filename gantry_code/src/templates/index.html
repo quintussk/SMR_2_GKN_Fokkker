@@ -190,6 +190,7 @@
         <button class="tab-button" onclick="openTab(event, 'tab1')">Home</button>
         <button class="tab-button" onclick="openTab(event, 'tab2')">Live camera feed</button>
         <button class="tab-button" onclick="openTab(event, 'move')">Move</button>
+        <button class="tab-button" onclick="openTab(event, 'capture')">Capture</button>
         <button class="tab-button" onclick="openTab(event, 'tab4')">Tab 4</button>
     </div>
 
@@ -246,6 +247,22 @@
         </div>
     </div>
 
+    <!-- Capture Tab -->
+    <div id="capture" class="tab-content">
+        <div class="capture-container">
+            <button class="button" onclick="startCapture()">Start Capture</button>
+            <button class="button" onclick="stopCapture()">Stop Capture</button>
+            <button class="button" onclick="captureImage()">Capture Image</button>
+            <div id="captured-image-container">
+                <img id="captured-image" src="" alt="Captured Image" style="display:none; margin-top: 20px;">
+            </div>
+            <div id="stitched-images-container" style="margin-top: 20px;">
+                <h3>Stitched Images</h3>
+                <div id="stitched-images"></div>
+            </div>
+        </div>
+    </div>
+
     <div id="tab4" class="tab-content">Content for Tab 4</div>
 
     <script>
@@ -255,6 +272,9 @@
                 tabContent[i].classList.remove("active");
             }
             document.getElementById(tabName).classList.add("active");
+            if (tabName === 'capture') {
+                loadStitchedImages();
+            }
         }
 
         function move(direction) {
@@ -315,6 +335,84 @@
             videoFeed.src = "";
             videoFeed.style.display = "none";
             placeholder.style.display = "flex";
+        }
+
+        function startCapture() {
+            fetch('/start_capture', {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === "success") {
+                    console.log(data.message);
+                } else {
+                    console.error("Error:", data.message);
+                }
+            })
+            .catch(error => {
+                console.error("Error:", error);
+            });
+        }
+
+        function stopCapture() {
+            fetch('/stop_capture', {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === "success") {
+                    console.log(data.message);
+                } else {
+                    console.error("Error:", data.message);
+                }
+            })
+            .catch(error => {
+                console.error("Error:", error);
+            });
+        }
+
+        function captureImage() {
+            fetch('/capture_image', {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === "success") {
+                    console.log(data.message);
+                    const capturedImage = document.getElementById("captured-image");
+                    capturedImage.src = "/latest_image?" + new Date().getTime(); // Prevent caching
+                    capturedImage.style.display = "block";
+                    loadStitchedImages(); // Refresh stitched images
+                } else {
+                    console.error("Error:", data.message);
+                }
+            })
+            .catch(error => {
+                console.error("Error:", error);
+            });
+        }
+
+        function loadStitchedImages() {
+            fetch('/stitched_images')
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === "success") {
+                    const stitchedImagesContainer = document.getElementById("stitched-images");
+                    stitchedImagesContainer.innerHTML = "";
+                    data.images.forEach(image => {
+                        const imgElement = document.createElement("img");
+                        imgElement.src = `/images/${image}`;
+                        imgElement.style.maxWidth = "100%";
+                        imgElement.style.marginTop = "10px";
+                        stitchedImagesContainer.appendChild(imgElement);
+                    });
+                } else {
+                    console.error("Error:", data.message);
+                }
+            })
+            .catch(error => {
+                console.error("Error:", error);
+            });
         }
 
         function updateSpeeds() {
