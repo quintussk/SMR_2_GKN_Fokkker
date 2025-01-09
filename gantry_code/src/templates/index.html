@@ -253,9 +253,9 @@
             <button class="button" onclick="startCapture()">Start Capture</button>
             <button class="button" onclick="stopCapture()">Stop Capture</button>
             <button class="button" onclick="captureImage()">Capture Image</button>
-            <div id="captured-image-container">
+            <!-- <div id="captured-image-container">
                 <img id="captured-image" src="" alt="Captured Image" style="display:none; margin-top: 20px;">
-            </div>
+            </div> -->
             <div id="stitched-images-container" style="margin-top: 20px;">
                 <h3>Stitched Images</h3>
                 <div id="stitched-images"></div>
@@ -379,9 +379,9 @@
             .then(data => {
                 if (data.status === "success") {
                     console.log(data.message);
-                    const capturedImage = document.getElementById("captured-image");
-                    capturedImage.src = "/latest_image?" + new Date().getTime(); // Prevent caching
-                    capturedImage.style.display = "block";
+                    // const capturedImage = document.getElementById("captured-image");
+                    // capturedImage.src = "/latest_image?" + new Date().getTime(); // Prevent caching
+                    // capturedImage.style.display = "block";
                     loadStitchedImages(); // Refresh stitched images
                 } else {
                     console.error("Error:", data.message);
