@@ -180,6 +180,21 @@
         .button:hover {
             background-color: #14536a;
         }
+
+        .image-list {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        .image-list-item {
+            cursor: pointer;
+            color: #1f4f66;
+            text-decoration: underline;
+        }
+
+        .image-list-item:hover {
+            color: #14536a;
+        }
     </style>
 </head>
 <body>
@@ -253,12 +268,12 @@
             <button class="button" onclick="startCapture()">Start Capture</button>
             <button class="button" onclick="stopCapture()">Stop Capture</button>
             <button class="button" onclick="captureImage()">Capture Image</button>
-            <!-- <div id="captured-image-container">
-                <img id="captured-image" src="" alt="Captured Image" style="display:none; margin-top: 20px;">
-            </div> -->
             <div id="stitched-images-container" style="margin-top: 20px;">
                 <h3>Stitched Images</h3>
-                <div id="stitched-images"></div>
+                <ul id="stitched-images-list" class="image-list"></ul>
+                <div id="stitched-image-display" style="margin-top: 20px;">
+                    <img id="stitched-image" src="" alt="Stitched Image" style="max-width: 100%; display: none;">
+                </div>
             </div>
         </div>
     </div>
@@ -379,9 +394,6 @@
             .then(data => {
                 if (data.status === "success") {
                     console.log(data.message);
-                    // const capturedImage = document.getElementById("captured-image");
-                    // capturedImage.src = "/latest_image?" + new Date().getTime(); // Prevent caching
-                    // capturedImage.style.display = "block";
                     loadStitchedImages(); // Refresh stitched images
                 } else {
                     console.error("Error:", data.message);
@@ -397,14 +409,14 @@
             .then(response => response.json())
             .then(data => {
                 if (data.status === "success") {
-                    const stitchedImagesContainer = document.getElementById("stitched-images");
-                    stitchedImagesContainer.innerHTML = "";
+                    const stitchedImagesList = document.getElementById("stitched-images-list");
+                    stitchedImagesList.innerHTML = "";
                     data.images.forEach(image => {
-                        const imgElement = document.createElement("img");
-                        imgElement.src = `/images/${image}`;
-                        imgElement.style.maxWidth = "100%";
-                        imgElement.style.marginTop = "10px";
-                        stitchedImagesContainer.appendChild(imgElement);
+                        const listItem = document.createElement("li");
+                        listItem.className = "image-list-item";
+                        listItem.textContent = image;
+                        listItem.onclick = () => displayStitchedImage(image);
+                        stitchedImagesList.appendChild(listItem);
                     });
                 } else {
                     console.error("Error:", data.message);
@@ -413,6 +425,12 @@
             .catch(error => {
                 console.error("Error:", error);
             });
+        }
+
+        function displayStitchedImage(image) {
+            const stitchedImage = document.getElementById("stitched-image");
+            stitchedImage.src = `/images/${image}`;
+            stitchedImage.style.display = "block";
         }
 
         function updateSpeeds() {

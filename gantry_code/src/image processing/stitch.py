@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 
 # Initialize the webcam
-cap = cv2.VideoCapture(0)
+cap = cv2.VideoCapture("http://192.168.0.100:8080/video")
 
 # List to store captured frames
 captured_frames = []
@@ -35,7 +35,7 @@ while True:
         else:
             # Stitch images horizontally
             try:
-                collage = np.vstack(captured_frames)
+                collage = np.hstack(captured_frames)
                 cv2.imshow("Collage", collage)
     
             except Exception as e:
