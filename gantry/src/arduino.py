@@ -13,22 +13,36 @@ class ArduinoConnection:
             self.speed2 = 0
             self.request_values()
         except serial.SerialException as e:
-            print(f"Kan geen verbinding maken met Arduino: {e}")
+            print(f"Cannot connect to Arduino: {e}")
             self.connection = None
 
     def send_command(self, command):
         """
-        Stuurt een commando naar de Arduino via de seriële verbinding.
+        Sends a command to the Arduino via the serial connection.
         """
         if self.connection:
             try:
                 self.connection.write(f"{command}\n".encode())
-                print(f"Commando '{command}' verzonden naar Arduino")
+                print(f"Command '{command}' sent to Arduino")
             except Exception as e:
-                print(f"Fout bij het verzenden van commando: {e}")
+                print(f"Error sending command: {e}")
         else:
-            print("Geen actieve verbinding met Arduino")
-# new branch
+            print("No active connection to Arduino")
+
+    def send_steps(self, horizontal_step, vertical_step):
+        """
+        Sends the step values to the Arduino via the serial connection.
+        """
+        if self.connection:
+            try:
+                command = f"H{horizontal_step}V{vertical_step}"
+                self.connection.write(f"{command}\n".encode())
+                print(f"Steps '{command}' sent to Arduino")
+            except Exception as e:
+                print(f"Error sending steps: {e}")
+        else:
+            print("No active connection to Arduino")
+
     def set_speed(self, speed_value):
         if speed_value == "increase":
             self.speed1 += 50

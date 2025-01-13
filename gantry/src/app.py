@@ -65,19 +65,6 @@ def stop_capture():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
-# @app.route('/latest_image')
-# def latest_image():
-#     try:
-#         # Get the latest captured image
-#         image_files = sorted(os.listdir(image_dir), key=lambda x: os.path.getctime(os.path.join(image_dir, x)))
-#         if not image_files:
-#             return jsonify({"status": "error", "message": "No images found"}), 404
-
-#         latest_image_path = image_files[-1]
-#         return send_from_directory(image_dir, latest_image_path)
-#     except Exception as e:
-#         return jsonify({"status": "error", "message": str(e)}), 500
-
 @app.route('/stitched_images')
 def stitched_images():
     try:
@@ -119,6 +106,21 @@ def get_speeds():
         speed1 = 100  # Placeholder value
         speed2 = 200  # Placeholder value
         return jsonify({"speed1": speed1, "speed2": speed2})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/move_steps', methods=['POST'])
+def move_steps():
+    try:
+        data = request.get_json()
+        horizontal_steps = data.get('horizontal_steps')
+        vertical_steps = data.get('vertical_steps')
+        if horizontal_steps is not None and vertical_steps is not None:
+            # Send the steps to Arduino
+            arduino.send_steps(horizontal_steps, vertical_steps)
+            return jsonify({"status": "success", "message": f"Moved {horizontal_steps} horizontal steps and {vertical_steps} vertical steps"})
+        else:
+            return jsonify({"status": "error", "message": "Steps not provided"}), 400
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 

@@ -506,6 +506,16 @@
             <button class="buttonMove" onclick="adjustSpeed('increase')">Speed + (50)</button>
             <button class="buttonMove" onclick="adjustSpeed('decrease')">Speed - (50)</button>
         </div>
+        <div>
+            <h3>Move Steppers</h3>
+            <form id="move-steps-form">
+                <label for="horizontal-steps">Horizontal Steps:</label>
+                <input type="number" id="horizontal-steps" name="horizontal-steps" required>
+                <label for="vertical-steps">Vertical Steps:</label>
+                <input type="number" id="vertical-steps" name="vertical-steps" required>
+                <button type="submit">Move</button>
+            </form>
+        </div>
     </div>
 
     <!-- Capture Tab -->
@@ -716,6 +726,31 @@
 
         // Initialiseer de snelheden wanneer de pagina wordt geladen
         document.addEventListener("DOMContentLoaded", updateSpeeds);
+
+        document.getElementById('move-steps-form').addEventListener('submit', function(event) {
+            event.preventDefault();
+            const horizontalSteps = document.getElementById('horizontal-steps').value;
+            const verticalSteps = document.getElementById('vertical-steps').value;
+
+            fetch('/move_steps', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ horizontal_steps: horizontalSteps, vertical_steps: verticalSteps })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === "success") {
+                    console.log(data.message);
+                } else {
+                    console.error("Error:", data.message);
+                }
+            })
+            .catch(error => {
+                console.error("Error:", error);
+            });
+        });
     </script>
 </body>
 </html>
