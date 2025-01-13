@@ -28,7 +28,7 @@ class ArduinoConnection:
                 print(f"Fout bij het verzenden van commando: {e}")
         else:
             print("Geen actieve verbinding met Arduino")
-
+# new branch
     def set_speed(self, speed_value):
         if speed_value == "increase":
             self.speed1 += 50
