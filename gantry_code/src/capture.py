@@ -2,6 +2,9 @@ import cv2
 import numpy as np
 import os
 
+horizontal_length = 3
+vertical_length = 2
+
 class ImageCaptureAndStitch:
     def __init__(self, image_dir='./images', camera_index=0):
         self.image_dir = image_dir
@@ -21,7 +24,7 @@ class ImageCaptureAndStitch:
             raise Exception("Error: Unable to read frame from camera.")
         self.captured_frames.append(frame.copy())
         print(f"Captured {len(self.captured_frames)} frame(s).")
-        if len(self.captured_frames) == 3:
+        if len(self.captured_frames) == horizontal_length:
             self.stitch_horizontally()
 
     def stitch_horizontally(self):
@@ -30,7 +33,7 @@ class ImageCaptureAndStitch:
             self.horizontal_stitched_images.append(stitched_image)
             self.captured_frames = []
             print(f"Stitched horizontally {len(self.horizontal_stitched_images)} image(s).")
-            if len(self.horizontal_stitched_images) == 2:
+            if len(self.horizontal_stitched_images) == vertical_length:
                 self.stitch_vertically()
         except Exception as e:
             print(f"Error stitching images horizontally: {e}")
