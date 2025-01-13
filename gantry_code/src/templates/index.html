@@ -22,16 +22,130 @@
             margin: 20px 0;
         }
 
-        .tab-button {
-            display: inline-block;
-            padding: 10px 20px;
-            margin: 5px;
-            border: 2px solid #1f4f66;
-            color: #1f4f66;
-            background: none;
-            font-size: 1rem;
-            cursor: pointer;
+        .loader {
+            position: relative;
+            width: 150px;
+            height: 150px;
+            background: transparent;
+            border-radius: 50%;
+            box-shadow: 25px 25px 75px rgba(0,0,0,0.55);
+            border: 1px solid #333;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
         }
+
+        .loader::before {
+            content: '';
+            position: absolute;
+            inset: 20px;
+            background: transparent;
+            border: 1px dashed#444;
+            border-radius: 50%;
+            box-shadow: inset -5px -5px 25px rgba(0,0,0,0.25),
+            inset 5px 5px 35px rgba(0,0,0,0.25);
+        }
+
+        .loader::after {
+            content: '';
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: 1px dashed#444;
+            box-shadow: inset -5px -5px 25px rgba(0,0,0,0.25),
+            inset 5px 5px 35px rgba(0,0,0,0.25);
+        }
+
+        .loader span {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 50%;
+            height: 100%;
+            background: transparent;
+            transform-origin: top left;
+            animation: radar81 2s linear infinite;
+            border-top: 1px dashed #000000;
+        }
+
+        .loader span::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: seagreen;
+            transform-origin: top left;
+            transform: rotate(-55deg);
+            filter: blur(30px) drop-shadow(20px 20px 20px seagreen);
+        }
+
+        @keyframes radar81 {
+        0% {
+            transform: rotate(0deg);
+        }
+
+        100% {
+            transform: rotate(360deg);
+        }
+        }
+
+        .tab-button {        
+            --color: #1f4f66;
+            padding: 0.8em 1.7em;
+            background-color: transparent;
+            border-radius: .3em;
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
+            transition: .5s;
+            font-weight: 400;
+            font-size: 17px;
+            border: 1px solid;
+            font-family: inherit;
+            text-transform: uppercase;
+            color: var(--color);
+            z-index: 1;
+        }
+
+        /* .tab-button::before, .button::after {
+            content: '';
+            display: block;
+            width: 50px;
+            height: 50px;
+            transform: translate(-50%, -50%);
+            position: absolute;
+            border-radius: 50%;
+            z-index: -1;
+            background-color: var(--color);
+            transition: 1s ease;
+        }
+
+        .tab-button::before {
+        top: -1em;
+        left: -1em;
+        }
+
+        .tab-button::after {
+        left: calc(100% + 1em);
+        top: calc(100% + 1em);
+        }
+
+        .tab-button:hover::before, .button:hover::after {
+        height: 410px;
+        width: 410px;
+        }
+
+        .tab-button:hover {
+        color: rgb(0, 0, 0);
+        }
+
+        .tab-button:active {
+        filter: brightness(.8);
+        } */
 
         .speed-controls {
             margin-top: 20px; /* Ruimte boven de knoppen */
@@ -68,6 +182,10 @@
             height: 300px;
             margin: 50px auto;
             background-color: #f8f9fa;
+        }
+
+        .scan {
+            margin-top: 400px; /* Voeg ruimte toe boven de scan knoppen */
         }
 
         .center-circle {
@@ -167,7 +285,7 @@
             transform: translate(50%, 50%);
         }
 
-        .button {
+        .buttonMove {
             padding: 10px 20px;
             background-color: #1f4f66;
             color: #fff;
@@ -177,8 +295,63 @@
             font-size: 1rem;
         }
 
-        .button:hover {
-            background-color: #14536a;
+        .buttonMove:hover {
+            background-color: #232e32;
+        } 
+
+        /* From Uiverse.io by nikk7007 */ 
+        .buttonGreen {
+        --color: #00A97F;
+        padding: 0.8em 1.7em;
+        background-color: transparent;
+        border-radius: .3em;
+        position: relative;
+        overflow: hidden;
+        cursor: pointer;
+        transition: .5s;
+        font-weight: 400;
+        font-size: 17px;
+        border: 1px solid;
+        font-family: inherit;
+        text-transform: uppercase;
+        color: var(--color);
+        z-index: 1;
+        }
+
+        .buttonGreen::before, .button::after {
+        content: '';
+        display: block;
+        width: 50px;
+        height: 50px;
+        transform: translate(-50%, -50%);
+        position: absolute;
+        border-radius: 50%;
+        z-index: -1;
+        background-color: var(--color);
+        transition: 1s ease;
+        }
+
+        .buttonGreen::before {
+        top: -1em;
+        left: -1em;
+        }
+
+        .buttonGreen::after {
+        left: calc(100% + 1em);
+        top: calc(100% + 1em);
+        }
+
+        .buttonGreen:hover::before, .button:hover::after {
+        height: 410px;
+        width: 410px;
+        }
+
+        .buttonGreen:hover {
+        color: rgb(10, 25, 30);
+        }
+
+        .buttonGreen:active {
+        filter: brightness(.8);
         }
 
         .image-list {
@@ -195,6 +368,73 @@
         .image-list-item:hover {
             color: #14536a;
         }
+
+        .buttonRed {
+        --color: #a90000;
+        padding: 0.8em 1.7em;
+        background-color: transparent;
+        border-radius: .3em;
+        position: relative;
+        overflow: hidden;
+        cursor: pointer;
+        transition: .5s;
+        font-weight: 400;
+        font-size: 17px;
+        border: 1px solid;
+        font-family: inherit;
+        text-transform: uppercase;
+        color: var(--color);
+        z-index: 1;
+        }
+
+        .buttonRed::before, .button::after {
+        content: '';
+        display: block;
+        width: 50px;
+        height: 50px;
+        transform: translate(-50%, -50%);
+        position: absolute;
+        border-radius: 50%;
+        z-index: -1;
+        background-color: var(--color);
+        transition: 1s ease;
+        }
+
+        .buttonRed::before {
+        top: -1em;
+        left: -1em;
+        }
+
+        .buttonRed::after {
+        left: calc(100% + 1em);
+        top: calc(100% + 1em);
+        }
+
+        .buttonRed:hover::before, .button:hover::after {
+        height: 410px;
+        width: 410px;
+        }
+
+        .buttonRed:hover {
+        color: rgb(0, 0, 0);
+        }
+
+        .buttonRed:active {
+        filter: brightness(.8);
+        }
+
+        #loader-container {
+        display: none; /* Verborgen standaard */
+        position: absolute; /* Absoluut gepositioneerd */
+        top: 50%; /* Verticaal gecentreerd */
+        left: 50%; /* Horizontaal gecentreerd */
+        transform: translate(-50%, -50%); /* Zorg dat het midden van de loader op de exacte middenpositie staat */
+        justify-content: center; /* Horizontale uitlijning */
+        align-items: center; /* Verticale uitlijning */
+        text-align: center;
+        z-index: 100; /* Zorg dat de loader altijd bovenaan staat */
+    }
+
     </style>
 </head>
 <body>
@@ -203,16 +443,22 @@
     <!-- Tabs -->
     <div class="tabs">
         <button class="tab-button" onclick="openTab(event, 'tab1')">Home</button>
-        <button class="tab-button" onclick="openTab(event, 'tab2')">Live camera feed</button>
+        <button class="tab-button" onclick="openTab(event, 'tab2')">Camera feed</button>
         <button class="tab-button" onclick="openTab(event, 'move')">Move</button>
         <button class="tab-button" onclick="openTab(event, 'capture')">Capture</button>
         <button class="tab-button" onclick="openTab(event, 'tab4')">Tab 4</button>
     </div>
 
-    <!-- Tab Content -->
+    <div id="loader-container">
+        <div class="loader">
+            <span></span>
+        </div>
+    </div>
+    
     <div id="tab1" class="tab-content active">
-        <div class="home-container">
-            <button class="button">Start Scan</button>
+        <div class="scan">
+            <button class="buttonGreen" onclick="startScan()">Start Scan</button>
+            <button class="buttonRed" onclick="stopScan()">Stop Scan</button>
         </div>
     </div>
 
@@ -227,8 +473,8 @@
 
             <!-- Knoppen onder de feed -->
             <div id="feed-controls">
-                <button class="button" onclick="startFeed()">Start Feed</button>
-                <button class="button" onclick="stopFeed()">Stop Feed</button>
+                <button class="buttonGreen" onclick="startFeed()">Start Feed</button>
+                <button class="buttonRed" onclick="stopFeed()">Stop Feed</button>
             </div>
         </div>
     </div>
@@ -257,17 +503,17 @@
         </div>
         <!-- Speed Controls -->
         <div class="speed-controls">
-            <button class="button" onclick="adjustSpeed('increase')">Speed + (50)</button>
-            <button class="button" onclick="adjustSpeed('decrease')">Speed - (50)</button>
+            <button class="buttonMove" onclick="adjustSpeed('increase')">Speed + (50)</button>
+            <button class="buttonMove" onclick="adjustSpeed('decrease')">Speed - (50)</button>
         </div>
     </div>
 
     <!-- Capture Tab -->
     <div id="capture" class="tab-content">
         <div class="capture-container">
-            <button class="button" onclick="startCapture()">Start Capture</button>
-            <button class="button" onclick="stopCapture()">Stop Capture</button>
-            <button class="button" onclick="captureImage()">Capture Image</button>
+            <button class="buttonMove" onclick="startCapture()">Start Capture</button>
+            <button class="buttonMove" onclick="stopCapture()">Stop Capture</button>
+            <button class="buttonMove" onclick="captureImage()">Capture Image</button>
             <div id="stitched-images-container" style="margin-top: 20px;">
                 <h3>Stitched Images</h3>
                 <ul id="stitched-images-list" class="image-list"></ul>
@@ -290,6 +536,22 @@
             if (tabName === 'capture') {
                 loadStitchedImages();
             }
+        }
+
+        function startScan() {
+            // Toon de loader
+            document.getElementById('loader-container').style.display = 'flex';
+
+            // Hier kun je eventuele logica toevoegen voor het starten van de scan
+            console.log("Scan gestart");
+        }
+
+        function stopScan() {
+            // Verberg de loader
+            document.getElementById('loader-container').style.display = 'none';
+
+            // Hier kun je eventuele logica toevoegen voor het stoppen van de scan
+            console.log("Scan gestopt");
         }
 
         function move(direction) {

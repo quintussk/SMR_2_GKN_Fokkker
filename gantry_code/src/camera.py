@@ -2,10 +2,11 @@ import cv2
 
 class Camera:
     def __init__(self):
-
-        self.camera = cv2.VideoCapture(0)
-        if not self.camera.isOpened():
-            raise ValueError(f"Camera met index {0} kon niet worden geopend.")
+        index = 2
+        pass
+        # self.camera = cv2.VideoCapture(index)
+        # if not self.camera.isOpened():
+        #     raise ValueError(f"Camera met index {index} kon niet worden geopend.")
 
     def generate_frames(self):
         while True:

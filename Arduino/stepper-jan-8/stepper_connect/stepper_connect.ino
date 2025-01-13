@@ -1,12 +1,12 @@
 #include <AccelStepper.h>
 
 // Define the pins for the first stepper motor driver
-#define STEP_PIN_1 3
-#define DIR_PIN_1 4
+#define STEP_PIN_1 9
+#define DIR_PIN_1 8
 
 // Define the pins for the second stepper motor driver
-#define STEP_PIN_2 5
-#define DIR_PIN_2 6
+#define STEP_PIN_2 10
+#define DIR_PIN_2 11
 
 // Create instances of AccelStepper for both motors
 AccelStepper stepper1(AccelStepper::DRIVER, STEP_PIN_1, DIR_PIN_1);

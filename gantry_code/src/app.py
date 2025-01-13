@@ -3,14 +3,14 @@ import cv2
 import os
 from camera import Camera
 from capture import ImageCaptureAndStitch
-# from arduino import ArduinoConnection
+from arduino import ArduinoConnection
 
 app = Flask(__name__)
 
 # Initialize the camera (0 is the default camera index)
 camera_feed = Camera() 
 image_capture_and_stitch = ImageCaptureAndStitch()
-# arduino = ArduinoConnection(port="/dev/ttyACM0")
+arduino = ArduinoConnection(port="COM9")
 
 # Directory to save captured images
 image_dir = 'c:/Users/ihsan/Documents/SMR_2_GKN_Fokkker/images'
@@ -33,13 +33,13 @@ def move():
         if direction:
             # Send the command to Arduino
             print(direction)
-            # arduino.move_manual(direction)
+            arduino.move_manual(direction)
             return jsonify({"status": "success", "message": f"Moved {direction}"})
         else:
             return jsonify({"status": "error", "message": "No direction provided"}), 400
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
-
+ 
 @app.route('/capture_image', methods=['POST'])
 def capture_image():
     try:
