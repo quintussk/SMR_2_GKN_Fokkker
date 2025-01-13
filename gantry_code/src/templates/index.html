@@ -354,6 +354,21 @@
         filter: brightness(.8);
         }
 
+        .image-list {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        .image-list-item {
+            cursor: pointer;
+            color: #1f4f66;
+            text-decoration: underline;
+        }
+
+        .image-list-item:hover {
+            color: #14536a;
+        }
+
         .buttonRed {
         --color: #a90000;
         padding: 0.8em 1.7em;
@@ -430,6 +445,7 @@
         <button class="tab-button" onclick="openTab(event, 'tab1')">Home</button>
         <button class="tab-button" onclick="openTab(event, 'tab2')">Camera feed</button>
         <button class="tab-button" onclick="openTab(event, 'move')">Move</button>
+        <button class="tab-button" onclick="openTab(event, 'capture')">Capture</button>
         <button class="tab-button" onclick="openTab(event, 'tab4')">Tab 4</button>
     </div>
 
@@ -492,6 +508,22 @@
         </div>
     </div>
 
+    <!-- Capture Tab -->
+    <div id="capture" class="tab-content">
+        <div class="capture-container">
+            <button class="buttonMove" onclick="startCapture()">Start Capture</button>
+            <button class="buttonMove" onclick="stopCapture()">Stop Capture</button>
+            <button class="buttonMove" onclick="captureImage()">Capture Image</button>
+            <div id="stitched-images-container" style="margin-top: 20px;">
+                <h3>Stitched Images</h3>
+                <ul id="stitched-images-list" class="image-list"></ul>
+                <div id="stitched-image-display" style="margin-top: 20px;">
+                    <img id="stitched-image" src="" alt="Stitched Image" style="max-width: 100%; display: none;">
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="tab4" class="tab-content">Content for Tab 4</div>
 
     <script>
@@ -501,6 +533,9 @@
                 tabContent[i].classList.remove("active");
             }
             document.getElementById(tabName).classList.add("active");
+            if (tabName === 'capture') {
+                loadStitchedImages();
+            }
         }
 
         function startScan() {
@@ -577,6 +612,87 @@
             videoFeed.src = "";
             videoFeed.style.display = "none";
             placeholder.style.display = "flex";
+        }
+
+        function startCapture() {
+            fetch('/start_capture', {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === "success") {
+                    console.log(data.message);
+                } else {
+                    console.error("Error:", data.message);
+                }
+            })
+            .catch(error => {
+                console.error("Error:", error);
+            });
+        }
+
+        function stopCapture() {
+            fetch('/stop_capture', {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === "success") {
+                    console.log(data.message);
+                } else {
+                    console.error("Error:", data.message);
+                }
+            })
+            .catch(error => {
+                console.error("Error:", error);
+            });
+        }
+
+        function captureImage() {
+            fetch('/capture_image', {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === "success") {
+                    console.log(data.message);
+                    loadStitchedImages(); // Refresh stitched images
+                } else {
+                    console.error("Error:", data.message);
+                }
+            })
+            .catch(error => {
+                console.error("Error:", error);
+            });
+        }
+
+        function loadStitchedImages() {
+            fetch('/stitched_images')
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === "success") {
+                    const stitchedImagesList = document.getElementById("stitched-images-list");
+                    stitchedImagesList.innerHTML = "";
+                    data.images.forEach(image => {
+                        const listItem = document.createElement("li");
+                        listItem.className = "image-list-item";
+                        listItem.textContent = image;
+                        listItem.onclick = () => displayStitchedImage(image);
+                        stitchedImagesList.appendChild(listItem);
+                    });
+                } else {
+                    console.error("Error:", data.message);
+                }
+            })
+            .catch(error => {
+                console.error("Error:", error);
+            });
+        }
+
+        function displayStitchedImage(image) {
+            const stitchedImage = document.getElementById("stitched-image");
+            stitchedImage.src = `/images/${image}`;
+            stitchedImage.style.display = "block";
         }
 
         function updateSpeeds() {
