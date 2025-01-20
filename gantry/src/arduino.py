@@ -1,5 +1,6 @@
 import serial
 import time
+import asyncio
 
 class ArduinoConnection:
     def __init__(self, port, baudrate=9600, timeout=1):
@@ -12,6 +13,7 @@ class ArduinoConnection:
             self.direction2 = 0
             self.speed2 = 0
             self.request_values()
+            
         except serial.SerialException as e:
             print(f"Cannot connect to Arduino: {e}")
             self.connection = None
@@ -79,6 +81,25 @@ class ArduinoConnection:
                         self.speed2 = int(feedback.split("Speed = ")[1])
             except Exception as e:
                 print(f"Fout bij het lezen van feedback: {e}")
+
+    async def Wait_For_Location_Reached(self):
+        """
+        Continuously listens to the Arduino until the 'Steppers reached location' message is received.
+        """
+        print("Waiting for confirmation from Arduino...")
+        while True:
+            if self.connection and self.connection.in_waiting > 0:
+                try:
+                    # Read feedback from the Arduino
+                    feedback = self.connection.readline().decode().strip()
+                    print(f"Feedback received: {feedback}")
+                    # Check if the steppers have reached their location
+                    if feedback == "Steppers reached location":
+                        print("Confirmation received: Steppers have reached their destination!")
+                        return True
+                except Exception as e:
+                    print(f"Error reading feedback: {e}")
+            await asyncio.sleep(0.1)  # Prevent CPU overuse by adding a short delay
 
     def request_values(self):
         """

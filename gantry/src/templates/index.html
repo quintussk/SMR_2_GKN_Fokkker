@@ -423,6 +423,38 @@
         filter: brightness(.8);
         }
 
+        .input-container {
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .input-container label {
+            font-size: 1rem;
+            margin-right: 5px;
+        }
+
+        .input-container input {
+            width: 60px;
+            padding: 5px;
+            margin: 0 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            text-align: center;
+        }
+
+        .input-container button {
+            padding: 5px 10px;
+            background-color: #1f4f66;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .input-container button:hover {
+            background-color: #14536a;
+        }
+
         #loader-container {
         display: none; /* Verborgen standaard */
         position: absolute; /* Absoluut gepositioneerd */
@@ -446,22 +478,27 @@
         <button class="tab-button" onclick="openTab(event, 'tab2')">Camera feed</button>
         <button class="tab-button" onclick="openTab(event, 'move')">Move</button>
         <button class="tab-button" onclick="openTab(event, 'capture')">Capture</button>
-        <button class="tab-button" onclick="openTab(event, 'tab4')">Tab 4</button>
     </div>
 
+    <div id="tab1" class="tab-content active">
+        <div class="input-container" id="input-container">
+            <label for="x_distance">X:</label>
+            <input type="number" id="x_distance" name="x_distance" placeholder="cm" required>
+            <label for="y_distance">Y:</label>
+            <input type="number" id="y_distance" name="y_distance" placeholder="cm" required>
+            <button class="buttonGreen" id="start-scan-button" onclick="startNewScan()">Start Scan</button>
+        </div>
+    
+        <div class="input-container" id="stop-scan-container" style="display: none;">
+            <button class="buttonRed" onclick="stopScan()">Stop Scan</button>
+        </div>
+    </div>
     <div id="loader-container">
         <div class="loader">
             <span></span>
         </div>
     </div>
     
-    <div id="tab1" class="tab-content active">
-        <div class="scan">
-            <button class="buttonGreen" onclick="startScan()">Start Scan</button>
-            <button class="buttonRed" onclick="stopScan()">Stop Scan</button>
-        </div>
-    </div>
-
     <div id="tab2" class="tab-content">
         <div class="feed-container">
             <!-- Placeholder volledig gecentreerd -->
@@ -513,7 +550,7 @@
                 <input type="number" id="horizontal-steps" name="horizontal-steps" required>
                 <label for="vertical-steps">Vertical Steps:</label>
                 <input type="number" id="vertical-steps" name="vertical-steps" required>
-                <button type="submit">Move</button>
+                <button type="buttonMove">Move</button>
             </form>
         </div>
     </div>
@@ -704,6 +741,70 @@
             stitchedImage.src = `/images/${image}`;
             stitchedImage.style.display = "block";
         }
+
+        function startNewScan() {
+            const xDistance = document.getElementById('x_distance').value;
+            const yDistance = document.getElementById('y_distance').value;
+
+            if (xDistance && yDistance) {
+                console.log(`X afstand: ${xDistance} cm, Y afstand: ${yDistance} cm`);
+
+                // Verstuur de gegevens naar de server
+                fetch('/start_new_scan', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ x_distance: xDistance, y_distance: yDistance })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        console.log('Scan gestart!');
+                        // Verberg de invoervelden en toon de stopknop
+                        document.getElementById('input-container').style.display = 'none';
+                        document.getElementById('stop-scan-container').style.display = 'block';
+                    } else {
+                        alert('Er is een fout opgetreden');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                });
+            } else {
+                alert('Fill in both X and Y!');
+            }
+        }
+
+        function stopScan() {
+            console.log('Scan gestopt!');
+            // Verstuur een verzoek om de scan te stoppen
+            fetch('/stop_scan', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    console.log('Scan succesvol gestopt');
+                    // Toon de invoervelden opnieuw en verberg de stopknop
+                    document.getElementById('input-container').style.display = 'block';
+                    document.getElementById('stop-scan-container').style.display = 'none';
+
+                    // Reset de invoervelden
+                    document.getElementById('x_distance').value = '';
+                    document.getElementById('y_distance').value = '';
+                } else {
+                    alert('Er is een fout opgetreden bij het stoppen van de scan');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        }
+
 
         function updateSpeeds() {
             fetch('/get_speeds')

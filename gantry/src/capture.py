@@ -6,7 +6,7 @@ horizontal_frames = 3
 vertical_frames = 3
 
 class ImageCaptureAndStitch:
-    def __init__(self, image_dir='./images', camera_index=0):
+    def __init__(self, image_dir='./images', camera_index=1):
         self.image_dir = image_dir
         self.cap = cv2.VideoCapture(camera_index)
         if not self.cap.isOpened():
