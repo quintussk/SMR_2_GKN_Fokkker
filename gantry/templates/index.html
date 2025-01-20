@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Arduino Feedback</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script type="text/javascript">
+        document.addEventListener("DOMContentLoaded", function() {
+            var socket = io.connect('http://' + document.domain + ':' + location.port);
+            socket.on('feedback', function(msg) {
+                var feedbackDiv = document.getElementById('feedback');
+                var newMessage = document.createElement('p');
+                newMessage.textContent = msg.data;
+                feedbackDiv.appendChild(newMessage);
+            });
+        });
+    </script>
+</head>
+<body>
+    <h1>Arduino Feedback</h1>
+    <div id="feedback"></div>
+</body>
+</html>
