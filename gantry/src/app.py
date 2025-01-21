@@ -146,36 +146,36 @@ def get_speeds():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
-# @app.route('/start_new_scan', methods=['POST'])
-# def start_new_scan():
-#     data = request.json
-#     x_distance = data.get('x_distance')
-#     y_distance = data.get('y_distance')
-#     now = datetime.now()
-#     formatted_datetime = now.strftime("%d-%m-%Y_%H:%M")
-#     print(f"Scan started at X: {x_distance} cm and Y: {y_distance} cm, at {formatted_datetime}")
-#     # Voeg logica toe om de scan te starten
+@app.route('/start_new_scan', methods=['POST'])
+def start_new_scan():
+    data = request.json
+    x_distance = data.get('x_distance')
+    y_distance = data.get('y_distance')
+    now = datetime.now()
+    formatted_datetime = now.strftime("%d-%m-%Y_%H:%M")
+    print(f"Scan started at X: {x_distance} cm and Y: {y_distance} cm, at {formatted_datetime}")
+    # Voeg logica toe om de scan te starten
 
-#     def start_scan_thread(x_distance, y_distance, formatted_datetime):
-#         loop = asyncio.new_event_loop()
-#         asyncio.set_event_loop(loop)
-#         loop.run_until_complete(Gantry_Scan.Start_Scanning(X_Total=x_distance, Y_Total=y_distance, mold=formatted_datetime))
-#         loop.close()
+    def start_scan_thread(x_distance, y_distance, formatted_datetime):
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(Gantry_Scan.Start_Scanning(X_Total=x_distance, Y_Total=y_distance, mold=formatted_datetime))
+        loop.close()
 
-#     global scan_thread
-#     scan_thread = threading.Thread(target=start_scan_thread, args=(x_distance, y_distance, formatted_datetime))
-#     scan_thread.start()
-#     return jsonify({"status": "success", "message": "Scan gestart"})
+    global scan_thread
+    scan_thread = threading.Thread(target=start_scan_thread, args=(x_distance, y_distance, formatted_datetime))
+    scan_thread.start()
+    return jsonify({"status": "success", "message": "Scan gestart"})
 
-# @app.route('/stop_scan', methods=['POST'])
-# def stop_scan():
-#     print("Scan gestopt")
-#     # Voeg logica toe om de scan te stoppen
-#     if 'scan_thread' in globals():
-#         Gantry_Scan.stop_scanning()  # Assuming you have a method to stop the scanning process
-#         scan_thread.join()
-#         del globals()['scan_thread']
-#     return jsonify({"status": "success", "message": "Scan gestopt"})
+@app.route('/stop_scan', methods=['POST'])
+def stop_scan():
+    print("Scan gestopt")
+    # Voeg logica toe om de scan te stoppen
+    if 'scan_thread' in globals():
+        Gantry_Scan.stop_scanning()  # Assuming you have a method to stop the scanning process
+        scan_thread.join()
+        del globals()['scan_thread']
+    return jsonify({"status": "success", "message": "Scan gestopt"})
 
 # @app.route('/move_steps', methods=['POST'])
 # def move_steps():
@@ -193,4 +193,4 @@ def get_speeds():
 #         return jsonify({"status": "error", "message": str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5001)
+    app.run(host='0.0.0.0', port=5000)

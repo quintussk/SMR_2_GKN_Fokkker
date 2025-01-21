@@ -13,7 +13,7 @@ class Scanning:
         self.Wheel_Circumference = 5.432  # Circumference of the wheel in cm
 
         # Calculate steps required to move 1 cm
-        self.Steps_per_cm = self.Stepper_Rev_Ratio / self.Wheel_Circumference
+        self.Steps_per_cm = int(self.Stepper_Rev_Ratio / self.Wheel_Circumference)
 
         # Started Arduino class
         self.arduinoClass = arduinoClass
@@ -25,12 +25,23 @@ class Scanning:
         self.current_X = 0  # Current X position in cm
         self.current_Y = 0  # Current Y position in cm
 
+        self.arduinoClass.change_speed(motor="Mold", speed=300)
+        self.arduinoClass.change_speed(motor="Camera", speed=300)
+        
+
     async def Start_Scanning(self, X_Total: int, Y_Total: int, mold: str):
         """
         Main scanning function.
         - Calculates the movement plan based on total X and Y dimensions.
         - Executes the movement plan step by step.
         """
+        # Ensure the inputs are integers
+        try:
+            X_Total = int(X_Total)
+            Y_Total = int(Y_Total)
+        except ValueError:
+            raise ValueError("X_Total and Y_Total must be integers.")
+        
         # Calculate the movement plan for the given X_Total and Y_Total dimensions
         movement_plan = await self.Calculate_Movement(X_Total, Y_Total)
 
@@ -100,8 +111,9 @@ class Scanning:
         """
         Movement of the gantry along the X-axis.
         """
+        negative_steps = -abs(steps)
         print(f"Moving Gantry by {steps} steps")
-        self.arduinoClass.send_steps(0, steps)  # Send steps to Arduino
+        self.arduinoClass.send_steps(negative_steps,0)  # Send steps to Arduino
         await self.arduinoClass.Wait_For_Location_Reached()
         # Update current X position
         self.current_X += int(round(steps / self.Steps_per_cm))
@@ -112,7 +124,8 @@ class Scanning:
         Movement of the camera along the Y-axis.
         """
         print(f"Moving Camera by {steps} steps")
-        self.arduinoClass.send_steps(steps, 0)  # Send steps to Arduino
+        negative_steps = -abs(steps)
+        self.arduinoClass.send_steps(0,negative_steps)  # Send steps to Arduino
         await self.arduinoClass.Wait_For_Location_Reached()
         # Update current Y position
         self.current_Y += int(round(steps / self.Steps_per_cm))
