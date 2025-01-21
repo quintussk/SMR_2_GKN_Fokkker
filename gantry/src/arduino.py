@@ -13,6 +13,7 @@ class ArduinoConnection:
             self.direction2 = 0
             self.speed2 = 0
             self.request_values()
+            self.camera_homed = False
             
         except serial.SerialException as e:
             print(f"Cannot connect to Arduino: {e}")
@@ -45,7 +46,7 @@ class ArduinoConnection:
         else:
             print("No active connection to Arduino")
 
-    def set_speed(self, speed_value):
+    def change_speed(self, speed_value):
         if speed_value == "increase":
             self.speed1 += 50
             self.speed2 += 50
@@ -130,6 +131,45 @@ class ArduinoConnection:
                 self.send_command(directions[direction])
             else:
                 print("Ongeldige richting")
+
+    def change_speed(self, motor: str, speed: int):
+        """
+        Stelt de snelheid in voor een specifieke motor.
+        SPD1 = Mold motor
+        SPD2 = Camera motor
+        """
+        if self.connection:
+            if motor == "Mold":
+                self.speed1 = speed
+                self.send_command(f"SPD1:{speed}")
+            elif motor == "Camera":
+                self.speed2 = speed
+                self.send_command(f"SPD2:{speed}")
+            else:
+                print("Ongeldige motor")
+
+    async def home_camera(self): 
+        """
+        Zet de camera motor naar de home positie.
+        """
+        if self.camera_homed:
+            return
+        self.send_command("DIR1:1\nDIR2:1")
+        while True:
+            if self.connection and self.connection.in_waiting > 0:
+                try:
+                    # Read feedback from the Arduino
+                    feedback = self.connection.readline().decode().strip()
+                    print(f"Feedback received: {feedback}")
+                    # Check if the steppers have reached their location
+                    if feedback == "Camera limit switch 1":
+                        print("Confirmation received: Steppers have reached their destination!")
+                        return True
+                except Exception as e:
+                    print(f"Error reading feedback: {e}")
+            await asyncio.sleep(0.1)  # Prevent CPU overuse by adding a short delay
+
+
 
     def close(self):
         """

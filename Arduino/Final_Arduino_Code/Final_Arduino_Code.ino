@@ -1,4 +1,6 @@
+#include <Arduino.h>
 #include <AccelStepper.h>
+#include <Servo.h>
 
 // Define the pins for the stepper motor drivers
 #define STEP_PIN_1 10
@@ -8,10 +10,18 @@
 #define STEP_PIN_3 12
 #define DIR_PIN_3 13
 
+#define limitSwitchRightPin 6
+#define limitSwitchLeftPin 5
+
+#define SERVO_PIN 4
+
 // Create instances of AccelStepper for the motors
 AccelStepper stepper1(AccelStepper::DRIVER, STEP_PIN_1, DIR_PIN_1);
 AccelStepper stepper2(AccelStepper::DRIVER, STEP_PIN_2, DIR_PIN_2);
 AccelStepper stepper3(AccelStepper::DRIVER, STEP_PIN_3, DIR_PIN_3);
+
+// Create an instance of Servo
+Servo myServo;
 
 // Variables to store direction and speed for both motors
 int direction1 = 0;   // Default direction for motor 1 (1 = forward, -1 = reverse, 0 = stop)
@@ -31,18 +41,27 @@ void setup() {
   Serial.begin(9600);
 
   // Set maximum speed and acceleration for both motors
-  stepper1.setMaxSpeed(5000);
+  stepper1.setMaxSpeed(1000);
   stepper1.setAcceleration(500);
   
-  stepper2.setMaxSpeed(5000);
+  stepper2.setMaxSpeed(1000);
   stepper2.setAcceleration(500);
 
-  stepper3.setMaxSpeed(5000);
+  stepper3.setMaxSpeed(1000);
   stepper3.setAcceleration(500);
 
   Serial.println("Ready");
 
+  pinMode(limitSwitchRightPin, INPUT_PULLUP);
+  pinMode(limitSwitchLeftPin, INPUT_PULLUP);
+
+  // Attach the servo to the pin
+  myServo.attach(SERVO_PIN);
+
+  // Move the servo to 90 degrees
+  myServo.write(90);
 }
+
 
 // Function to send feedback to the Python script
 void sendFeedback(String message) {
@@ -79,22 +98,50 @@ void checkStateChange() {
 
 // Function to move steppers according to received steps
 void moveSteppers(int horizontal_steps, int vertical_steps) {
+  // Check the state of the limit switches
+  bool LS_RIGHT = digitalRead(limitSwitchRightPin) == LOW; // LOW if pressed
+  bool LS_LEFT = digitalRead(limitSwitchLeftPin) == LOW;  // LOW if pressed
   
+  // Adjust vertical_steps based on limit switches
+  if (vertical_steps > 0 && LS_RIGHT) {
+    vertical_steps = 0; // Stop moving in positive direction if LS_RIGHT is pressed
+  } else if (vertical_steps < 0 && LS_LEFT) {
+    vertical_steps = 0; // Stop moving in negative direction if LS_LEFT is pressed
+  }
+
+  // Move the steppers
   stepper1.move(horizontal_steps * -1);
   stepper2.move(horizontal_steps);
   stepper3.move(vertical_steps);
 
-  while (stepper1.distanceToGo() != 0 || stepper2.distanceToGo() != 0 || stepper3.distanceToGo() != 0) {  
+  // Run the steppers until they reach their target
+  while (stepper1.distanceToGo() != 0 || stepper2.distanceToGo() != 0 || stepper3.distanceToGo() != 0) {
     stepper1.run();
     stepper2.run();
-    stepper3.run();
+
+    // Check limit switches during motion
+    LS_RIGHT = digitalRead(limitSwitchRightPin) == LOW;
+    LS_LEFT = digitalRead(limitSwitchLeftPin) == LOW;
+
+    if ((stepper3.distanceToGo() > 0 && LS_RIGHT) || (stepper3.distanceToGo() < 0 && LS_LEFT)) {
+      stepper3.stop(); // Stop the motor if the limit switch is triggered
+      stepper3.setCurrentPosition(0);
+    } else {
+      stepper3.run();
+    }
   }
 
   // Send serial command to capture image
   Serial.println("Steppers reached location");
 }
-
 void loop() {
+  // if (digitalRead(LS_RIGHT) == LOW) {
+  //   Serial.println("Right limit switch pressed");
+  // }
+  // if (digitalRead(LS_LEFT) == LOW) {
+  //   Serial.println("Left limit switch pressed");
+  // }
+
   // Check if data is available on serial
   if (Serial.available() > 0) {
     String input = Serial.readStringUntil('\n');
@@ -118,6 +165,7 @@ void loop() {
     else if (input.startsWith("SPD1:")) {
       speed1 = input.substring(5).toInt();
       stepper1.setMaxSpeed(speed1);
+      stepper2.setMaxSpeed(speed1);
       sendFeedback("Motor 1 Speed set to " + String(speed1));
     }
 
@@ -139,7 +187,7 @@ void loop() {
     
     else if (input.startsWith("SPD2:")) {
       speed2 = input.substring(5).toInt();
-      stepper2.setMaxSpeed(speed2);
+      stepper3.setMaxSpeed(speed2);
       sendFeedback("Motor 2 Speed set to " + String(speed2));
     }
 
@@ -158,24 +206,34 @@ void loop() {
       sendFeedback("Steppers moved: Horizontal = " + String(horizontal_steps) + ", Vertical = " + String(vertical_steps));
     }
   }
+  
 
-  // Set the speed for both motors
-  if (direction1 != 0) {
-    stepper1.setSpeed(direction1 * speed1);
+  // Check if LS_RIGHT or LS_LEFT is triggered
+  if (digitalRead(limitSwitchRightPin) == LOW || digitalRead(limitSwitchLeftPin) == LOW) {
+    // Stop all steppers
+    stepper1.setSpeed(0);
+    stepper2.setSpeed(0);
+    stepper3.setSpeed(0);
   } else {
-    stepper1.setSpeed(0);  // Stop motor 1
+    // Set the speed for both motors
+    if (direction1 != 0) {
+      stepper1.setSpeed(direction1 * speed1);
+      stepper2.setSpeed(direction1 * speed1);
+    } else {
+      stepper1.setSpeed(0);  // Stop motor 1
+      stepper2.setSpeed(0);  // Stop motor 1
+    }
+
+    if (direction2 != 0) {
+      stepper3.setSpeed(direction2 * speed2);
+    } else {
+      stepper3.setSpeed(0);  // Stop motor 2
+    }
   }
 
-  if (direction2 != 0) {
-    stepper2.setSpeed(direction2 * speed2);
-  } else {
-    stepper2.setSpeed(0);  // Stop motor 2
-  }
-
-  // Move the stepper motors
-  stepper1.runSpeed();
-  stepper2.runSpeed();
-  stepper3.runSpeed();
+  stepper1.setCurrentPosition(0);
+  stepper2.setCurrentPosition(0);
+  stepper3.setCurrentPosition(0);
 
   // Check for state changes to provide periodic feedback
   checkStateChange();
