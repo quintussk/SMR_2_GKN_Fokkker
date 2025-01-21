@@ -1,12 +1,12 @@
 #include <AccelStepper.h>
 
 // Define the pins for the stepper motor drivers
-#define STEP_PIN_1 9
-#define DIR_PIN_1 8
-#define STEP_PIN_2 11
-#define DIR_PIN_2 10
-#define STEP_PIN_3 13
-#define DIR_PIN_3 12
+#define STEP_PIN_1 10
+#define DIR_PIN_1 11
+#define STEP_PIN_2 8
+#define DIR_PIN_2 9
+#define STEP_PIN_3 12
+#define DIR_PIN_3 13
 
 // Create instances of AccelStepper for the motors
 AccelStepper stepper1(AccelStepper::DRIVER, STEP_PIN_1, DIR_PIN_1);
@@ -44,7 +44,6 @@ void setup() {
 
 }
 
-
 // Function to send feedback to the Python script
 void sendFeedback(String message) {
   Serial.println(message);
@@ -80,17 +79,17 @@ void checkStateChange() {
 
 // Function to move steppers according to received steps
 void moveSteppers(int horizontal_steps, int vertical_steps) {
-  Serial.println("Moving Steppers");
-  stepper1.move(horizontal_steps);
-  stepper2.move(vertical_steps);
-  stepper3.move(horizontal_steps);
+  
+  stepper1.move(horizontal_steps * -1);
+  stepper2.move(horizontal_steps);
+  stepper3.move(vertical_steps);
 
   while (stepper1.distanceToGo() != 0 || stepper2.distanceToGo() != 0 || stepper3.distanceToGo() != 0) {  
     stepper1.run();
     stepper2.run();
     stepper3.run();
   }
-  
+
   // Send serial command to capture image
   Serial.println("Steppers reached location");
 }
