@@ -492,6 +492,10 @@
         <div class="input-container" id="stop-scan-container" style="display: none;">
             <button class="buttonRed" onclick="stopScan()">Stop Scan</button>
         </div>
+
+        <div id="latest-image-container">
+            <img id="latest-image" src="{{ image_url }}" alt="Latest Image" style="max-width: 100%; height: auto;">
+        </div>
     </div>
     <div id="loader-container">
         <div class="loader">
@@ -805,6 +809,31 @@
             });
         }
 
+        function updateImage() {
+            fetch('/latest_image')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === "success") {
+                        const imgElement = document.getElementById("latest-image");
+                        const currentSrc = imgElement.src;
+                        const newSrc = `${data.image_url}?t=${new Date().getTime()}`; // Cache-buster
+                        if (currentSrc !== newSrc) {
+                            imgElement.src = newSrc;
+                        }
+                    } else {
+                        console.error("Error fetching latest image:", data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error("Error updating image:", error);
+                });
+        }
+
+        // Roep de functie elke 5 seconden aan
+        setInterval(updateImage, 5000);
+
+        // Initialiseer bij het laden van de pagina
+        document.addEventListener("DOMContentLoaded", updateImage);
 
         function updateSpeeds() {
             fetch('/get_speeds')
