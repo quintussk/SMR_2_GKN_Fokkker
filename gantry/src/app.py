@@ -4,13 +4,20 @@ import os
 from camera import Camera
 from capture import ImageCaptureAndStitch
 from arduino import ArduinoConnection
+from datetime import datetime
+from scan import Scanning
+import threading
+import asyncio
+from pathlib import Path
 
 app = Flask(__name__)
 
 # Initialize the camera (0 is the default camera index)
-# camera_feed = Camera() 
 # image_capture_and_stitch = ImageCaptureAndStitch()
+
+# camera_feed = Camera() 
 # arduino = ArduinoConnection(port="COM9")
+# Gantry_Scan = Scanning(arduinoClass=arduino, camera=camera_feed)
 
 # Directory to save captured images
 image_dir = 'c:/Users/ihsan/Documents/SMR_2_GKN_Fokkker/images'
@@ -21,15 +28,30 @@ os.makedirs(image_dir, exist_ok=True)
 #     # Return the video stream response
 #     return Response(camera_feed.generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
+# @app.route('/')
+# def index():
+#     return render_template('index.html')
+
+
 @app.route('/')
 def index():
-    return render_template('index.html')
+    # Dynamisch pad naar de afbeelding
+    image_path = Path(__file__).parent / "Pictures" / "stitched_image.jpg"
+    print(image_path)
+    # Controleer of het bestand bestaat
+    print(f"Checking image path: {image_path}")
+    print(f"Does the file exist? {image_path.exists()}")
+    if image_path.exists():
+        image_url = f"/images/{image_path.name}"
+    else:
+        image_url = "/images/default.jpg"  # Fallback als het bestand niet bestaat
+    return render_template('index.html', image_url=image_url)
 
 @app.route('/move', methods=['POST'])
 # def move():
 #     try:
-#         data = request.get_json()
 #         direction = data.get('direction')
+#         data = request.get_json()
 #         if direction:
 #             # Send the command to Arduino
 #             print(direction)
@@ -77,8 +99,11 @@ def stitched_images():
 @app.route('/images/<filename>')
 def get_image(filename):
     try:
-        return send_from_directory(image_dir, filename)
+        # Gebruik de map waarin de afbeelding zich bevindt
+        images_dir = Path(__file__).parent / "Pictures"
+        return send_from_directory(images_dir, filename)
     except Exception as e:
+        print(f"Error serving image: {e}")  # Log foutmelding
         return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/adjust_speed', methods=['POST'])
@@ -98,6 +123,18 @@ def adjust_speed():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
+@app.route('/latest_image', methods=['GET'])
+def latest_image():
+    try:
+        images_dir = Path(__file__).parent / "Pictures"
+        image_path = images_dir / "stitched_image.jpg"
+        if image_path.exists():
+            return jsonify({"status": "success", "image_url": f"/images/{image_path.name}"})
+        else:
+            return jsonify({"status": "error", "message": "Image not found"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)})
+
 @app.route('/get_speeds', methods=['GET'])
 def get_speeds():
     try:
@@ -109,20 +146,36 @@ def get_speeds():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
-@app.route('/start_new_scan', methods=['POST'])
-def start_new_scan():
-    data = request.json
-    x_distance = data.get('x_distance')
-    y_distance = data.get('y_distance')
-    print(f"Scan gestart met X: {x_distance} cm en Y: {y_distance} cm")
-    # Voeg logica toe om de scan te starten
-    return jsonify({"status": "success", "message": "Scan gestart"})
+# @app.route('/start_new_scan', methods=['POST'])
+# def start_new_scan():
+#     data = request.json
+#     x_distance = data.get('x_distance')
+#     y_distance = data.get('y_distance')
+#     now = datetime.now()
+#     formatted_datetime = now.strftime("%d-%m-%Y_%H:%M")
+#     print(f"Scan started at X: {x_distance} cm and Y: {y_distance} cm, at {formatted_datetime}")
+#     # Voeg logica toe om de scan te starten
 
-@app.route('/stop_scan', methods=['POST'])
-def stop_scan():
-    print("Scan gestopt")
-    # Voeg logica toe om de scan te stoppen
-    return jsonify({"status": "success", "message": "Scan gestopt"})
+#     def start_scan_thread(x_distance, y_distance, formatted_datetime):
+#         loop = asyncio.new_event_loop()
+#         asyncio.set_event_loop(loop)
+#         loop.run_until_complete(Gantry_Scan.Start_Scanning(X_Total=x_distance, Y_Total=y_distance, mold=formatted_datetime))
+#         loop.close()
+
+#     global scan_thread
+#     scan_thread = threading.Thread(target=start_scan_thread, args=(x_distance, y_distance, formatted_datetime))
+#     scan_thread.start()
+#     return jsonify({"status": "success", "message": "Scan gestart"})
+
+# @app.route('/stop_scan', methods=['POST'])
+# def stop_scan():
+#     print("Scan gestopt")
+#     # Voeg logica toe om de scan te stoppen
+#     if 'scan_thread' in globals():
+#         Gantry_Scan.stop_scanning()  # Assuming you have a method to stop the scanning process
+#         scan_thread.join()
+#         del globals()['scan_thread']
+#     return jsonify({"status": "success", "message": "Scan gestopt"})
 
 # @app.route('/move_steps', methods=['POST'])
 # def move_steps():
