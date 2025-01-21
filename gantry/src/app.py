@@ -15,18 +15,18 @@ app = Flask(__name__)
 # Initialize the camera (0 is the default camera index)
 # image_capture_and_stitch = ImageCaptureAndStitch()
 
-# camera_feed = Camera() 
-# arduino = ArduinoConnection(port="COM9")
-# Gantry_Scan = Scanning(arduinoClass=arduino, camera=camera_feed)
+camera_feed = Camera() 
+arduino = ArduinoConnection(port="//dev/ttyACM0")
+Gantry_Scan = Scanning(arduinoClass=arduino, camera=camera_feed)
 
 # Directory to save captured images
 image_dir = 'c:/Users/ihsan/Documents/SMR_2_GKN_Fokkker/images'
 os.makedirs(image_dir, exist_ok=True)
 
 @app.route('/video_feed')
-# def video_feed():
-#     # Return the video stream response
-#     return Response(camera_feed.generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+def video_feed():
+    # Return the video stream response
+    return Response(camera_feed.generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
 # @app.route('/')
 # def index():

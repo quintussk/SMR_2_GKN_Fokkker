@@ -7,7 +7,7 @@ import asyncio
 
 
 class Camera:
-    def __init__(self, index=1):  # Default index is 0
+    def __init__(self, index=4):  # Default index is 0
         self.camera = cv2.VideoCapture(index)
         if not self.camera.isOpened():
             raise ValueError(f"Camera with index {index} could not be opened.")
