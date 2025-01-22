@@ -34,15 +34,15 @@ class Scanning:
         self.current_X = 0  # Current X position in cm
         self.current_Y = 0  # Current Y position in cm
 
-        self.arduinoClass.change_speed_motor(motor="Mold", speed=300)
-        self.arduinoClass.change_speed_motor(motor="Camera", speed=300)
-
     async def check_if_camera_is_home(self):
         """
         Checks if the camera is at the home position.
         """
-        pass
-        
+        position_reached = await self.arduinoClass.check_camera()
+        if not position_reached:
+            await self.arduinoClass.change_speed_motor("Camera",100)
+            await self.arduinoClass.home_camera()
+        print("Camera is homed")
         
 
     async def Start_Scanning(self, X_Total: int, Y_Total: int, mold: str):
@@ -54,7 +54,7 @@ class Scanning:
 
         await self.check_if_camera_is_home()
         # Ensure the inputs are integers
-        await self.arduinoClass.change_speed_motor(motor="Mold", speed=1000)
+        await self.arduinoClass.change_speed_motor(motor="Mold", speed=500)
         await self.arduinoClass.change_speed_motor(motor="Camera", speed=1000)
         try:
             X_Total = int(X_Total)

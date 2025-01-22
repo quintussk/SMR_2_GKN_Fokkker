@@ -192,10 +192,6 @@ class ArduinoConnection:
                     print(f"Error reading feedback: {e}")
             await asyncio.sleep(0.1)  # Prevent CPU overuse by adding a short delay
 
-
-
-=======
->>>>>>> Stashed changes
     def close(self):
         """
         Sluit de seriële verbinding.

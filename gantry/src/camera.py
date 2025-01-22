@@ -14,8 +14,8 @@ class Camera:
             raise ValueError(f"Camera with index {index} could not be opened.")
         
                 # Stel de resolutie in op 1080p
-        self.camera.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)  # Breedte
-        self.camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)  # Hoogte
+        # self.camera.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)  # Breedte
+        # self.camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)  # Hoogte
         
         self.current_frame = None
         self.running = True
@@ -46,7 +46,7 @@ class Camera:
         while self.running:
             success, frame = self.camera.read()
             if success:
-                # frame = self.adjust_brightness(frame, alpha=1.5, beta=50)
+                frame = self.adjust_brightness(frame, alpha=1.5, beta=50)
                 self.current_frame = frame
             else:
                 print("Failed to read frame from camera")
@@ -62,6 +62,7 @@ class Camera:
         """
         Slaat het huidige frame op en voegt het toe aan de verwerkingswachtrij.
         """
+        await asyncio.sleep(2)
         if self.current_frame is None:
             raise RuntimeError("No frame available to capture.")
         
