@@ -132,7 +132,11 @@ class ArduinoConnection:
             else:
                 print("Ongeldige richting")
 
+<<<<<<< Updated upstream
     def change_speed(self, motor: str, speed: int):
+=======
+    def set_speed(self, motor: str, speed: int):
+>>>>>>> Stashed changes
         """
         Stelt de snelheid in voor een specifieke motor.
         SPD1 = Mold motor
@@ -148,6 +152,7 @@ class ArduinoConnection:
             else:
                 print("Ongeldige motor")
 
+<<<<<<< Updated upstream
     async def home_camera(self): 
         """
         Zet de camera motor naar de home positie.
@@ -171,6 +176,8 @@ class ArduinoConnection:
 
 
 
+=======
+>>>>>>> Stashed changes
     def close(self):
         """
         Sluit de seriële verbinding.
