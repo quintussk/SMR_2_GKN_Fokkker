@@ -24,14 +24,8 @@ image_dir = 'c:/Users/ihsan/Documents/SMR_2_GKN_Fokkker/images'
 os.makedirs(image_dir, exist_ok=True)
 
 @app.route('/video_feed')
-def video_feed():
-    # Return the video stream response
+def video_feed_rgb():
     return Response(camera_feed.generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
-
-# @app.route('/')
-# def index():
-#     return render_template('index.html')
-
 
 @app.route('/')
 def index():
@@ -177,20 +171,20 @@ def stop_scan():
         del globals()['scan_thread']
     return jsonify({"status": "success", "message": "Scan gestopt"})
 
-# @app.route('/move_steps', methods=['POST'])
-# def move_steps():
-#     try:
-#         data = request.get_json()
-#         horizontal_steps = data.get('horizontal_steps')
-#         vertical_steps = data.get('vertical_steps')
-#         if horizontal_steps is not None and vertical_steps is not None:
-#             # Send the steps to Arduino
-#             arduino.send_steps(horizontal_steps, vertical_steps)
-#             return jsonify({"status": "success", "message": f"Moved {horizontal_steps} horizontal steps and {vertical_steps} vertical steps"})
-#         else:
-#             return jsonify({"status": "error", "message": "Steps not provided"}), 400
-#     except Exception as e:
-#         return jsonify({"status": "error", "message": str(e)}), 500
+@app.route('/move_steps', methods=['POST'])
+def move_steps():
+    try:
+        data = request.get_json()
+        horizontal_steps = data.get('horizontal_steps')
+        vertical_steps = data.get('vertical_steps')
+        if horizontal_steps is not None and vertical_steps is not None:
+            # Send the steps to Arduino
+            arduino.send_steps(horizontal_steps, vertical_steps)
+            return jsonify({"status": "success", "message": f"Moved {horizontal_steps} horizontal steps and {vertical_steps} vertical steps"})
+        else:
+            return jsonify({"status": "error", "message": "Steps not provided"}), 400
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)

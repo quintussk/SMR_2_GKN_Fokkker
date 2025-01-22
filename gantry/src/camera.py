@@ -5,12 +5,17 @@ import time
 import numpy as np
 import asyncio
 
+import threading
 
 class Camera:
-    def __init__(self, index=4):  # Default index is 0
+    def __init__(self, index=4):
         self.camera = cv2.VideoCapture(index)
         if not self.camera.isOpened():
             raise ValueError(f"Camera with index {index} could not be opened.")
+        
+        # Variabelen om frames op te slaan
+        self.current_frame = None
+        self.running = True
         self.stitched_image = None  # Houd de samengestelde afbeelding bij
         self.max_width = 0  # Max canvas breedte
         self.max_height = 0  # Max canvas hoogte
@@ -19,29 +24,63 @@ class Camera:
         self.last_X = 0
         self.last_Y = 0
 
+        # Start een thread voor de achtergrondfunctie
+        self.thread = threading.Thread(target=self._capture_frames, daemon=True)
+        self.thread.start()
+
+    def _capture_frames(self):
+        """
+        Continu leest frames van de camera en slaat deze op in `self.current_frame`.
+        Voegt eventueel beeldverwerking toe.
+        """
+        while self.running:
+            success, frame = self.camera.read()
+            if success:
+                # Optioneel: Pas helderheid of contrast aan
+                frame = self.adjust_brightness(frame, alpha=1.5, beta=50)
+                self.current_frame = frame
+            else:
+                print("Failed to read frame from camera")
+            time.sleep(0.03)  # Voorkomt overbelasting (33ms = ~30 FPS)
+
+    def adjust_brightness(self, image, alpha=1.5, beta=50):
+        """
+        Adjusts the brightness and contrast of the image.
+        Args:
+            image: The input image.
+            alpha: Contrast control (1.0-3.0).
+            beta: Brightness control (0-100).
+        Returns:
+            Adjusted image.
+        """
+        return cv2.convertScaleAbs(image, alpha=alpha, beta=beta)
+
     async def take_picture(self, mold_name: str, filename: str):
         """
-        Takes a picture and saves it in a temporary folder within the mold-specific directory.
-
-        Args:
-            mold_name (str): The name of the mold (used as a directory name).
-            filename (str): The filename for the image.
+        Slaat het huidige frame op als afbeelding.
         """
-        success, frame = self.camera.read()
-        if success:
-            # Maak de tijdelijke directory
-            path_temp = Path(__file__).parent / "Pictures" / mold_name / "temporary"
-            path_temp.mkdir(parents=True, exist_ok=True)
+        if self.current_frame is None:
+            raise RuntimeError("No frame available to capture.")
+        
+        # Maak de tijdelijke directory
+        path_temp = Path(__file__).parent / "Pictures" / mold_name / "temporary"
+        path_temp.mkdir(parents=True, exist_ok=True)
 
-            # Sla de afbeelding tijdelijk op
-            temp_filepath = path_temp / filename
-            cv2.imwrite(str(temp_filepath), frame)
-            print(f"Temporary image saved at: {temp_filepath}")
+        # Sla het huidige frame op
+        temp_filepath = path_temp / filename
+        cv2.imwrite(str(temp_filepath), self.current_frame)
+        print(f"Temporary image saved at: {temp_filepath}")
 
-            # Verwerk de afbeelding direct in de hoofdfunctie
-            await self.process_image(mold_name, filename, frame)
-        else:
-            raise RuntimeError("Failed to take picture")
+        # Verwerk de afbeelding direct
+        await self.process_image(mold_name, filename, self.current_frame)
+
+    def release(self):
+        self.running = False
+        self.depth_running = False
+        self.thread.join()
+        self.depth_thread.join()
+        self.camera.release()
+        print("Camera and depth pipeline released.")
         
     async def process_image(self, mold_name: str, filename: str, frame):
         """
@@ -110,6 +149,7 @@ class Camera:
             coordinates: (current_X, current_Y) coordinates of the new image.
         """
         current_X, current_Y = coordinates
+        print(f"Current picture coordinates: X={current_X}, Y={current_Y}")
         height, width, _ = new_image.shape
 
         # Initialiseer stitched_image canvas als deze nog niet bestaat
@@ -130,6 +170,10 @@ class Camera:
             new_pixel_X = self.current_pixel_X + height
             print(f"Placing vertically below at ({new_pixel_X}, {new_pixel_Y}).")
 
+        elif current_X < self.last_X:  # Verticaal boven de vorige foto
+            new_pixel_X = self.current_pixel_X - height
+            print(f"Placing vertically above at ({new_pixel_X}, {new_pixel_Y}).")
+
         elif current_Y > self.last_Y:  # Horizontaal rechts van de vorige foto
             new_pixel_Y = self.current_pixel_Y + width
             print(f"Placing horizontally right at ({new_pixel_X}, {new_pixel_Y}).")
@@ -140,18 +184,20 @@ class Camera:
 
         # Bereken of het canvas vergroot moet worden
         canvas_height = max(self.stitched_image.shape[0], new_pixel_X + height)
-        canvas_width = max(self.stitched_image.shape[1], new_pixel_Y + width, -new_pixel_Y)
+        canvas_width = max(self.stitched_image.shape[1], new_pixel_Y + width)  # Vergroot alleen rechts en links
+        left_extension = max(0, -new_pixel_Y)  # Bepaal hoeveel ruimte nodig is aan de linkerkant
+        top_extension = max(0, -new_pixel_X)  # Bepaal hoeveel ruimte nodig is aan de bovenkant
 
-        # Vergroot het canvas indien nodig
-        if canvas_height > self.stitched_image.shape[0] or canvas_width > self.stitched_image.shape[1]:
-            new_canvas = np.zeros((canvas_height, canvas_width, 3), dtype=np.uint8)
+        if left_extension > 0 or top_extension > 0 or canvas_height > self.stitched_image.shape[0] or canvas_width > self.stitched_image.shape[1]:
+            # Maak een nieuw vergroot canvas
+            new_canvas = np.zeros((canvas_height + top_extension, canvas_width + left_extension, 3), dtype=np.uint8)
 
-            # Verschuif het oude canvas naar de juiste plek in het nieuwe canvas
-            y_offset = max(0, -new_pixel_Y)  # Verplaats oude canvas als er linksuitbreiding is
-            x_offset = 0  # Geen verplaatsing nodig voor verticale uitbreiding
+            # Kopieer het oude canvas naar de juiste positie in het nieuwe canvas
+            y_offset = left_extension  # Schuif het oude canvas naar rechts als er linksuitbreiding is
+            x_offset = top_extension  # Schuif het oude canvas naar beneden als er bovenuitbreiding is
             new_canvas[x_offset:x_offset + self.stitched_image.shape[0], y_offset:y_offset + self.stitched_image.shape[1]] = self.stitched_image
             self.stitched_image = new_canvas
-            print(f"Canvas expanded to ({canvas_width}, {canvas_height}).")
+            print(f"Canvas expanded to ({self.stitched_image.shape[1]}, {self.stitched_image.shape[0]}).")
 
             # Pas de pixelcoördinaten aan
             new_pixel_X += x_offset
@@ -177,19 +223,25 @@ class Camera:
         self.camera.release()
 
     def generate_frames(self):
+        """
+        Continu levert frames vanuit de achtergrondfunctie die de camera frames bijhoudt.
+        """
         while True:
-            success, frame = self.camera.read()
-            if not success:
-                break
-            else:
-                ret, buffer = cv2.imencode('.jpg', frame)
+            # Controleer of er een huidig frame beschikbaar is
+            if self.current_frame is not None:
+                # Converteer het frame naar een JPEG-encoded byte buffer
+                ret, buffer = cv2.imencode('.jpg', self.current_frame)
                 if not ret:
                     print("Frame encoding failed")
                     break
                 frame = buffer.tobytes()
 
+                # Lever het frame als HTTP-respons
                 yield (b'--frame\r\n'
-                       b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+                    b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+            else:
+                print("No current frame available, waiting...")
+                time.sleep(0.03)  # Wacht even voordat het opnieuw probeert
 
 async def main():
     camera = Camera()

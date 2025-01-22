@@ -4,13 +4,22 @@ from camera import Camera
 
 class Scanning:
     def __init__(self, arduinoClass: ArduinoConnection, camera: Camera):
+    # def __init__(self):
+
         # Define the movement in centimeters for X and Y directions
-        self.X_Movement = 50  # How many cm to move for the X position (Gantry)
-        self.Y_Movement = 50  # How many cm to move for the Y position (Camera)
+        self.X_Movement = 30  # How many cm to move for the X position (Gantry)
+        self.Y_Movement = 28  # How many cm to move for the Y position (Camera)
+        
+        self.Max_Camera_Movement = 149  # Maximum movement for the camera in cm
 
         # Define the hardware-specific stepper motor details
         self.Stepper_Rev_Ratio = 400  # Steps per full revolution of the motor
-        self.Wheel_Circumference = 5.432  # Circumference of the wheel in cm
+
+        self.Wheel_Circumference = 18.1 # Circumference of the wheel in cm
+        self.Camera_Ration = 15.5 # Ratio of the camera movement to the mold movement Rev/CM
+
+        self.Steps_per_cm_wheel = int(self.Stepper_Rev_Ratio / self.Wheel_Circumference)
+        self.Steps_per_cm_camera = int(self.Stepper_Rev_Ratio / self.Camera_Ration)
 
         # Calculate steps required to move 1 cm
         self.Steps_per_cm = int(self.Stepper_Rev_Ratio / self.Wheel_Circumference)
@@ -43,7 +52,7 @@ class Scanning:
             raise ValueError("X_Total and Y_Total must be integers.")
         
         # Calculate the movement plan for the given X_Total and Y_Total dimensions
-        movement_plan = await self.Calculate_Movement(X_Total, Y_Total)
+        movement_plan = await self.Calculate_Movement(X_Total, Y_Total, "Negative")
 
         # Execute each movement in the calculated plan
         for step in movement_plan:
@@ -57,63 +66,73 @@ class Scanning:
             await self.camera.take_picture(mold_name=mold, filename=f"{mold}_image_X{self.current_X}_Y{self.current_Y}.jpg")
             print(f"Photo taken at X: {self.current_X} cm, Y: {self.current_Y} cm")
 
-    async def Calculate_Movement(self, X_Total: int, Y_Total: int):
-        """
-        Calculates the movement steps required for scanning without overshooting.
-        - Includes an initial half-step in the X direction for offset.
-        - Ensures no overshoot in either direction.
+    async def Calculate_Movement(self, X_Total: int, Y_Total: int, Direction: str):
+            """
+            Calculates the movement steps required for scanning without overshooting.
+            Ensures that the total movement along the Y-axis does not exceed the maximum camera movement.
+            Args:
+               X_Total (int): The total distance to move along the X-axis in centimeters.
+                Y_Total (int): The total distance to move along the Y-axis in centimeters.
+                Direction (str): The direction of movement ("Positive" or "Negative").
+            Returns:
+                movement_plan (list): A list of dictionaries describing each movement step.
+            """
+            movement_plan = []  # List to store the movement plan
 
-        Returns:
-            movement_plan (list): A list of dictionaries describing each movement step.
-        """
-        movement_plan = []  # List to store the movement plan
+            # Adjust Y_Total to fit within the maximum allowed movement
+            if Y_Total > self.Max_Camera_Movement:
+                print(f"Requested Y_Total ({Y_Total} cm) exceeds Max_Camera_Movement ({self.Max_Camera_Movement} cm). Adjusting.")
+                Y_Total = self.Max_Camera_Movement
 
-        # Calculate the total allowed steps for X and Y dimensions
-        total_X_Steps = int(X_Total * self.Steps_per_cm)  # Total steps for the X dimension
-        total_Y_Steps = int(Y_Total * self.Steps_per_cm)  # Total steps for the Y dimension
+            # Calculate the total allowed steps for X and Y dimensions
+            total_X_Steps = int(X_Total * self.Steps_per_cm_wheel)  # Total steps for the X dimension
+            total_Y_Steps = int(Y_Total * self.Steps_per_cm_camera)  # Total steps for the adjusted Y dimension
 
-        # Calculate the initial half-step in the X direction
-        half_X_Steps = int((self.X_Movement / 2) * self.Steps_per_cm)
+            print(f"Total X Steps: {total_X_Steps}, Total Y Steps: {total_Y_Steps}")
 
-        # Adjust the initial half-step to ensure it does not cause an overshoot
-        if half_X_Steps + int((X_Total // self.X_Movement) * self.X_Movement * self.Steps_per_cm) > total_X_Steps:
-            # Reduce the initial half-step to prevent overshooting
-            half_X_Steps = total_X_Steps % int(self.X_Movement * self.Steps_per_cm)
+            # Calculate the initial half-step in the X direction
+            half_X_Steps = int((self.X_Movement / 2) * self.Steps_per_cm_wheel)
 
-        # Add the initial half-step to the movement plan
-        movement_plan.append({"axis": "X", "steps": half_X_Steps})
+            # Adjust the initial half-step to ensure it does not cause an overshoot
+            if half_X_Steps + int((X_Total // self.X_Movement) * self.X_Movement * self.Steps_per_cm_wheel) > total_X_Steps:
+                # Reduce the initial half-step to prevent overshooting
+                half_X_Steps = total_X_Steps % int(self.X_Movement * self.Steps_per_cm_wheel)
 
-        # Calculate the steps for each full movement in X and Y directions
-        X_Steps = int(self.X_Movement * self.Steps_per_cm)
-        Y_Steps = int(self.Y_Movement * self.Steps_per_cm)
+            # Add the initial half-step to the movement plan
+            movement_plan.append({"axis": "X", "steps": half_X_Steps})
 
-        # Determine how many full movements fit in the total dimensions
-        x_moves = X_Total // self.X_Movement  # Number of full movements in the X direction
-        y_moves = Y_Total // self.Y_Movement  # Number of full movements in the Y direction
+            # Calculate the steps for each full movement in X and Y directions
+            X_Steps = int(self.X_Movement * self.Steps_per_cm_wheel)
+            Y_Steps = int(self.Y_Movement * self.Steps_per_cm_camera)
 
-        # Loop through each X movement (columns)
-        for x in range(x_moves):
-            # Determine the Y direction for the current column (zigzag pattern)
-            direction = 1 if x % 2 == 0 else -1  # Move up (1) or down (-1)
+            # Determine how many full movements fit in the total dimensions
+            x_moves = X_Total // self.X_Movement  # Number of full movements in the X direction
+            y_moves = Y_Total // self.Y_Movement  # Number of full movements in the Y direction
 
-            # Loop through each Y movement (rows) in the current column
-            for _ in range(y_moves):
-                # Add a movement in the Y direction to the plan
-                movement_plan.append({"axis": "Y", "steps": Y_Steps * direction})
+            X_Direction = 1 if Direction == "Positive" else -1
+            # Loop through each X movement (columns)
+            for x in range(x_moves):
+                # Determine the Y direction for the current column
+                Y_Direction = -1 if x % 2 == 0 else 1  # Start with negative (-1) for even columns, positive (1) for odd columns
 
-            # Add a movement in the X direction to the plan, unless it's the last column
-            if x < x_moves - 1:
-                movement_plan.append({"axis": "X", "steps": X_Steps})
+                # Loop through each Y movement (rows) in the current column
+                for _ in range(y_moves):
+                    # Add a movement in the Y direction to the plan
+                    movement_plan.append({"axis": "Y", "steps": Y_Steps * Y_Direction})
 
-        return movement_plan  # Return the complete movement plan
+                # Add a movement in the X direction to the plan, unless it's the last column
+                if x < x_moves - 1:
+                    movement_plan.append({"axis": "X", "steps": X_Steps * X_Direction})
+
+            
+            print(movement_plan)
+            return movement_plan  # Return the complete movement plan
 
     async def Move_Gantry(self, steps: int):
         """
-        Movement of the gantry along the X-axis.
+        Movement of the gantry along the X-axis in steps.
         """
-        negative_steps = -abs(steps)
-        print(f"Moving Gantry by {steps} steps")
-        self.arduinoClass.send_steps(negative_steps,0)  # Send steps to Arduino
+        self.arduinoClass.send_steps(steps, 0)  # Send inverted steps to Arduino
         await self.arduinoClass.Wait_For_Location_Reached()
         # Update current X position
         self.current_X += int(round(steps / self.Steps_per_cm))
@@ -121,11 +140,9 @@ class Scanning:
 
     async def Move_Camera(self, steps: int):
         """
-        Movement of the camera along the Y-axis.
+        Movement of the camera along the Y-axis in steps.
         """
-        print(f"Moving Camera by {steps} steps")
-        negative_steps = -abs(steps)
-        self.arduinoClass.send_steps(0,negative_steps)  # Send steps to Arduino
+        self.arduinoClass.send_steps(0,steps)  # Send steps to Arduino
         await self.arduinoClass.Wait_For_Location_Reached()
         # Update current Y position
         self.current_Y += int(round(steps / self.Steps_per_cm))
@@ -134,8 +151,9 @@ class Scanning:
 
 if __name__ == "__main__":
     # Create a Scanning instance
-    arduino = ArduinoConnection(port="/dev/cu.usbmodem11301")
-    camera = Camera()
-    scan = Scanning(arduino, camera)
+    # arduino = ArduinoConnection(port="/dev/cu.usbmodem11301")
+    # camera = Camera()
+    scan = Scanning()
     # Start scanning with given X_Total and Y_Total dimensions
-    asyncio.run(scan.Start_Scanning(120, 200,mold="test"))
+    asyncio.run(scan.Calculate_Movement(60,215,"Negative"))
+
