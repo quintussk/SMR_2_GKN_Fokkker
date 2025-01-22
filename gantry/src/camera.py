@@ -13,6 +13,10 @@ class Camera:
         if not self.camera.isOpened():
             raise ValueError(f"Camera with index {index} could not be opened.")
         
+                # Stel de resolutie in op 1080p
+        self.camera.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)  # Breedte
+        self.camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)  # Hoogte
+        
         self.current_frame = None
         self.running = True
         self.stitched_image = None
@@ -95,9 +99,14 @@ class Camera:
 
             # Voer YOLO-inferentie uit
             results = self.yolo_model(frame)
+
             for result in results:
-                annotated_frame = result.plot()
-                frame = annotated_frame  # Gebruik de geannoteerde afbeelding voor stitching
+                boxes = result.boxes  # Haal de bounding boxes op
+                for box in boxes:
+                    # Verkrijg de coördinaten van de bounding box
+                    x1, y1, x2, y2 = map(int, box.xyxy[0])  # Converteer naar integers
+                    # Teken alleen de bounding box op het frame
+                    cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)  # Groen met dikte 2
 
             # Stitch de afbeelding
             coords = self.extract_coordinates(filename)

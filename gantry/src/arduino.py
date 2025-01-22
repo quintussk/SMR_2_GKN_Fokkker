@@ -132,7 +132,7 @@ class ArduinoConnection:
             else:
                 print("Ongeldige richting")
 
-    def change_speed(self, motor: str, speed: int):
+    async def change_speed_motor(self, motor: str, speed: int):
         """
         Stelt de snelheid in voor een specifieke motor.
         SPD1 = Mold motor
@@ -148,13 +148,12 @@ class ArduinoConnection:
             else:
                 print("Ongeldige motor")
 
-    async def home_camera(self): 
+
+    async def check_camera(self) -> bool:
         """
-        Zet de camera motor naar de home positie.
+        Controleert of de camera motor thuis is.
         """
-        if self.camera_homed:
-            return
-        self.send_command("DIR1:1\nDIR2:1")
+        self.send_command("CAMERA:POS")
         while True:
             if self.connection and self.connection.in_waiting > 0:
                 try:
@@ -162,7 +161,31 @@ class ArduinoConnection:
                     feedback = self.connection.readline().decode().strip()
                     print(f"Feedback received: {feedback}")
                     # Check if the steppers have reached their location
-                    if feedback == "Camera limit switch 1":
+                    if feedback == "Camera on position":
+                        print("Confirmation received: Camera is on position")
+                        return True
+                    elif feedback == "Camera not on position":
+                        print("Confirmation received: Camera is not on position" )
+                        return False
+                except Exception as e:
+                    print(f"Error reading feedback: {e}")
+            await asyncio.sleep(0.1)  # Prevent CPU overuse by adding a short delay
+
+    async def home_camera(self): 
+        """
+        Zet de camera motor naar de home positie.
+        """
+        if self.camera_homed:
+            return
+        self.send_command("H0V30000")
+        while True:
+            if self.connection and self.connection.in_waiting > 0:
+                try:
+                    # Read feedback from the Arduino
+                    feedback = self.connection.readline().decode().strip()
+                    print(f"Feedback received: {feedback}")
+                    # Check if the steppers have reached their location
+                    if feedback == "Steppers reached location":
                         print("Confirmation received: Steppers have reached their destination!")
                         return True
                 except Exception as e:
@@ -184,3 +207,14 @@ class ArduinoConnection:
         Zorg ervoor dat de verbinding wordt gesloten bij het verwijderen van het object.
         """
         self.close()
+
+if __name__ == "__main__":
+    async def main():
+        arduino = ArduinoConnection(port="//dev/ttyACM1")
+        position_reached = await arduino.check_camera()
+        if not position_reached:
+            await arduino.change_speed_motor("Camera",100)
+            await arduino.home_camera()
+        print("Camera is homed")
+
+    asyncio.run(main())
