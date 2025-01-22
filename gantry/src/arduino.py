@@ -194,6 +194,8 @@ class ArduinoConnection:
 
 
 
+=======
+>>>>>>> Stashed changes
     def close(self):
         """
         Sluit de seriële verbinding.
