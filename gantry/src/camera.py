@@ -4,8 +4,8 @@ import os
 import time
 import numpy as np
 import asyncio
-
 import threading
+from ultralytics import YOLO  # Import YOLO
 
 class Camera:
     def __init__(self, index=4):
@@ -13,90 +13,95 @@ class Camera:
         if not self.camera.isOpened():
             raise ValueError(f"Camera with index {index} could not be opened.")
         
-        # Variabelen om frames op te slaan
         self.current_frame = None
         self.running = True
-        self.stitched_image = None  # Houd de samengestelde afbeelding bij
-        self.max_width = 0  # Max canvas breedte
-        self.max_height = 0  # Max canvas hoogte
-        # self.current_X = 0
-        # self.current_Y = 0
+        self.stitched_image = None
         self.last_X = 0
         self.last_Y = 0
 
-        # Start een thread voor de achtergrondfunctie
-        self.thread = threading.Thread(target=self._capture_frames, daemon=True)
-        self.thread.start()
+        path_model = Path(__file__).parent / "best.pt"
+        self.yolo_model = YOLO(path_model)  # Pas "best.pt" aan naar jouw YOLO-modelbestand
+
+        # Threading voor process_image
+        self.process_queue = []  # Lijst om frames te verwerken
+        self.processing = False  # Houd bij of er een verwerking bezig is
+        self.processing_lock = threading.Lock()  # Lock voor threadveiligheid
+
+        # Start thread voor het verwerken van beelden
+        self.processing_thread = threading.Thread(target=self._process_images_thread, daemon=True)
+        self.processing_thread.start()
+
+        # Start achtergrond thread om frames te lezen
+        self.capture_thread = threading.Thread(target=self._capture_frames, daemon=True)
+        self.capture_thread.start()
 
     def _capture_frames(self):
         """
         Continu leest frames van de camera en slaat deze op in `self.current_frame`.
-        Voegt eventueel beeldverwerking toe.
         """
         while self.running:
             success, frame = self.camera.read()
             if success:
-                # Optioneel: Pas helderheid of contrast aan
-                frame = self.adjust_brightness(frame, alpha=1.5, beta=50)
+                # frame = self.adjust_brightness(frame, alpha=1.5, beta=50)
                 self.current_frame = frame
             else:
                 print("Failed to read frame from camera")
-            time.sleep(0.03)  # Voorkomt overbelasting (33ms = ~30 FPS)
+            time.sleep(0.03)
 
     def adjust_brightness(self, image, alpha=1.5, beta=50):
         """
-        Adjusts the brightness and contrast of the image.
-        Args:
-            image: The input image.
-            alpha: Contrast control (1.0-3.0).
-            beta: Brightness control (0-100).
-        Returns:
-            Adjusted image.
+        Pas helderheid en contrast van een afbeelding aan.
         """
         return cv2.convertScaleAbs(image, alpha=alpha, beta=beta)
 
     async def take_picture(self, mold_name: str, filename: str):
         """
-        Slaat het huidige frame op als afbeelding.
+        Slaat het huidige frame op en voegt het toe aan de verwerkingswachtrij.
         """
         if self.current_frame is None:
             raise RuntimeError("No frame available to capture.")
         
-        # Maak de tijdelijke directory
         path_temp = Path(__file__).parent / "Pictures" / mold_name / "temporary"
         path_temp.mkdir(parents=True, exist_ok=True)
 
-        # Sla het huidige frame op
         temp_filepath = path_temp / filename
         cv2.imwrite(str(temp_filepath), self.current_frame)
         print(f"Temporary image saved at: {temp_filepath}")
 
-        # Verwerk de afbeelding direct
-        await self.process_image(mold_name, filename, self.current_frame)
+        # Voeg het frame toe aan de wachtrij
+        with self.processing_lock:
+            self.process_queue.append((mold_name, filename, self.current_frame))
 
-    def release(self):
-        self.running = False
-        self.depth_running = False
-        self.thread.join()
-        self.depth_thread.join()
-        self.camera.release()
-        print("Camera and depth pipeline released.")
-        
-    async def process_image(self, mold_name: str, filename: str, frame):
+    def _process_images_thread(self):
         """
-        Processes the image using image recognition and stitches it into the composite image.
+        Thread die continu de wachtrij controleert en frames verwerkt.
+        """
+        while self.running:
+            if self.process_queue:
+                with self.processing_lock:
+                    mold_name, filename, frame = self.process_queue.pop(0)
 
-        Args:
-            mold_name (str): The name of the mold (used as a directory name).
-            filename (str): The filename for the image.
-            frame: The image frame to process.
+                # Verwerk het frame
+                self.process_image(mold_name, filename, frame)
+            else:
+                time.sleep(0.1)  # Voorkomt continu loopen als er niets te verwerken is
+
+    def process_image(self, mold_name: str, filename: str, frame):
+        """
+        Verwerkt de afbeelding met YOLO-inferentie en sticht vervolgens de afbeelding.
         """
         try:
             print(f"Processing image: {filename} in mold {mold_name}...")
 
+            # Voer YOLO-inferentie uit
+            results = self.yolo_model(frame)
+            for result in results:
+                annotated_frame = result.plot()
+                frame = annotated_frame  # Gebruik de geannoteerde afbeelding voor stitching
+
             # Stitch de afbeelding
             coords = self.extract_coordinates(filename)
-            await self.stitch_images(frame,coordinates=coords)
+            self.stitch_images(frame, coordinates=coords)
 
             # Verplaats het verwerkte beeld naar de permanente map
             path_temp = Path(__file__).parent / "Pictures" / mold_name / "temporary"
@@ -119,13 +124,6 @@ class Camera:
     def extract_coordinates(self, filename: str):
         """
         Extracts the X and Y coordinates from the filename.
-        The filename format is expected to be {mold}_image_X{current_X}_Y{current_Y}.jpg.
-
-        Args:
-            filename (str): The filename of the image.
-
-        Returns:
-            tuple: (current_X, current_Y)
         """
         try:
             x_start = filename.index("X") + 1
@@ -139,8 +137,8 @@ class Camera:
         except ValueError as e:
             print(f"Error parsing coordinates from filename: {filename}")
             return 0, 0
-        
-    async def stitch_images(self, new_image, coordinates):
+
+    def stitch_images(self, new_image, coordinates):
         """
         Stitches a new image into the composite image based on relative placement logic.
 
@@ -218,30 +216,31 @@ class Camera:
 
     def release(self):
         """
-        Releases the camera resource.
+        Stop de threads en release de camera.
         """
+        self.running = False
+        self.capture_thread.join()
+        self.processing_thread.join()
         self.camera.release()
+        print("Camera and processing threads released.")
 
     def generate_frames(self):
         """
-        Continu levert frames vanuit de achtergrondfunctie die de camera frames bijhoudt.
+        Continu levert frames vanuit de achtergrondfunctie.
         """
         while True:
-            # Controleer of er een huidig frame beschikbaar is
             if self.current_frame is not None:
-                # Converteer het frame naar een JPEG-encoded byte buffer
                 ret, buffer = cv2.imencode('.jpg', self.current_frame)
                 if not ret:
                     print("Frame encoding failed")
                     break
                 frame = buffer.tobytes()
 
-                # Lever het frame als HTTP-respons
                 yield (b'--frame\r\n'
-                    b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+                       b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
             else:
-                print("No current frame available, waiting...")
-                time.sleep(0.03)  # Wacht even voordat het opnieuw probeert
+                time.sleep(0.03)
+
 
 async def main():
     camera = Camera()
