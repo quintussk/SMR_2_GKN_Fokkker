@@ -205,6 +205,15 @@ void loop() {
       moveSteppers(horizontal_steps, vertical_steps);
       sendFeedback("Steppers moved: Horizontal = " + String(horizontal_steps) + ", Vertical = " + String(vertical_steps));
     }
+
+    else if (input.equals("CAMERA:POS")){
+      if (digitalRead(limitSwitchRightPin) == LOW){
+        sendFeedback("Camera on position");
+      }
+      else{
+        sendFeedback("Camera not on position");
+      }
+    }
   }
   
 
