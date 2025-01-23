@@ -980,30 +980,34 @@
             const yDistance = document.getElementById('y_distance').value;
 
             if (xDistance && yDistance) {
-                console.log(`X afstand: ${xDistance} cm, Y afstand: ${yDistance} cm`);
-
-                fetch('/start_new_scan', {
+                // Update mold dimensions first
+                fetch('/update_mold_dimensions', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({ x_distance: xDistance, y_distance: yDistance })
                 })
+                .then(() => {
+                    return fetch('/start_new_scan', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ x_distance: xDistance, y_distance: yDistance })
+                    });
+                })
                 .then(response => response.json())
                 .then(data => {
                     if (data.status === 'success') {
-                        console.log('Scan gestart!');
-                        // document.getElementById('loader-container').style.display = 'flex';
                         document.getElementById('input-container').style.display = 'none';
                         document.getElementById('stop-scan-container').style.display = 'block';
-                        startProgressBar(); // Start de progress bar
+                        startProgressBar();
                     } else {
                         alert('Er is een fout opgetreden');
                     }
                 })
-                .catch(error => {
-                    console.error('Error:', error);
-                });
+                .catch(error => console.error('Error:', error));
             } else {
                 alert('Fill in both X and Y!');
             }

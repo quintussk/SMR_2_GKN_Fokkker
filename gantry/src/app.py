@@ -208,6 +208,31 @@ def epoxy_data():
     except Exception as e:
         print(f"Error reading JSON file: {e}")
         return jsonify(error=str(e), data={"mold_dimensions": {"x": 0, "y": 0}, "epoxy_points": []})
+    
+@app.route('/update_mold_dimensions', methods=['POST'])
+def update_mold_dimensions():
+    epoxy_dir = Path(__file__).parent / "Epoxy"
+    json_file_path = epoxy_dir / "epoxy.json"
+
+    try:
+        data = request.get_json()
+        x_distance = data.get('x_distance')
+        y_distance = data.get('y_distance')
+
+        epoxy_data = {
+            'mold_dimensions': {
+                'x': float(x_distance),
+                'y': float(y_distance)
+            },
+            'epoxy_points': []
+        }
+
+        with open(json_file_path, 'w') as file:
+            json.dump(epoxy_data, file, indent=4)
+
+        return jsonify({"status": "success"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/update_epoxy_point', methods=['POST'])
 def update_epoxy_point():
