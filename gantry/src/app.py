@@ -164,9 +164,12 @@ def start_new_scan():
 @app.route('/status_scan', methods=['GET'])
 def status_scan():
     try:
-        # Dit is een voorbeeld. Zorg dat je `completed_steps` en `total_steps` bijhoudt in je Scanning klasse.
+        # Zorg ervoor dat je de scanstatus en voortgang opslaat in je Scanning-klasse
         status = Gantry_Scan.status_scan()
-        return jsonify(status)
+        return jsonify({
+            "progress": status.get("progress", 0),
+            "scan_status": status.get("scan_status", "idle"),  # Voeg "Epoxy found" of "Epoxy not found" hier toe
+        })
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 

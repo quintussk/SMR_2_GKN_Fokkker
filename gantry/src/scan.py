@@ -37,6 +37,8 @@ class Scanning:
         self.completed_steps = 0
         self.total_steps = 0
 
+        self.epoxy_found = False
+
     async def check_if_camera_is_home(self):
         """
         Checks if the camera is at the home position.
@@ -62,23 +64,25 @@ class Scanning:
             "progress": f"{progress:.2f}%",
             "completed_steps": self.completed_steps,
             "total_steps": self.total_steps,
-            "scan_active": hasattr(self, "scan_active") and self.scan_active
+            "scan_active": hasattr(self, "scan_active") and self.scan_active,
+            "scan_status": "Epoxy found" if self.epoxy_found else "Epoxy not found"
         }
         print(f"Scan status: {status}")
         return status
-
 
     async def stop_scanning(self):
         """
         Stops the scanning process.
         """
-        
+        if hasattr(self, "scan_active"):
+            self.scan_active = False
+            print("Scanning has been stopped by the user.")
+        else:
+            print("Scanning is not active.")
 
     async def Start_Scanning(self, X_Total: int, Y_Total: int, mold: str):
         """
         Main scanning function.
-        - Calculates the movement plan based on total X and Y dimensions.
-        - Executes the movement plan step by step.
         """
         await self.arduinoClass.Relay("ON")
         await self.check_if_camera_is_home()
@@ -91,18 +95,15 @@ class Scanning:
         except ValueError:
             raise ValueError("X_Total and Y_Total must be integers.")
         
-        # Calculate the movement plan for the given X_Total and Y_Total dimensions
         movement_plan = await self.Calculate_Movement(X_Total, Y_Total, "Negative")
 
-        self.total_steps = len(movement_plan)  # Totaal aantal stappen in het movement plan
-        self.completed_steps = 0  # Teller voor voltooide stappen
-
-        # Zet scan_active naar True voordat je start
+        self.total_steps = len(movement_plan)
+        self.completed_steps = 0
         self.scan_active = True
 
         for step in movement_plan:
-            if not self.scan_active:
-                print("Scan onderbroken door gebruiker.")
+            if not self.scan_active:  # Controleer de status van de scan
+                print("Scan interrupted by the user.")
                 break
 
             if step["axis"] == "Y":
@@ -110,17 +111,16 @@ class Scanning:
             elif step["axis"] == "X":
                 await self.Move_Gantry(step["steps"])
 
-            # Update teller voor voltooide stappen
             self.completed_steps += 1
-            progress = (self.completed_steps / self.total_steps) * 100  # Bereken voortgang in procenten
-            print(f"Scan voortgang: {progress:.2f}% ({self.completed_steps}/{self.total_steps} stappen voltooid)")
+            progress = (self.completed_steps / self.total_steps) * 100
+            print(f"Scan progress: {progress:.2f}%")
 
-            # Maak een foto op de huidige locatie
+            # Neem een foto op de huidige locatie
             await self.camera.take_picture(mold_name=mold, filename=f"{mold}_image_X{self.current_X}_Y{self.current_Y}.jpg")
             print(f"Photo taken at X: {self.current_X} cm, Y: {self.current_Y} cm")
         
         self.scan_active = False
-        print("Scan voltooid of gestopt.")
+        print("Scan completed or stopped.")
 
     async def Calculate_Movement(self, X_Total: int, Y_Total: int, Direction: str):
             """

@@ -481,12 +481,7 @@
         <button class="tab-button" onclick="openTab(event, 'capture')">Capture</button>
     </div>
 
-    <div id="loader-container">
-        <div class="loader">
-            <span></span>
-        </div>
-    </div>
-
+    
     <div id="home" class="tab-content active">
         <div class="input-container" id="input-container">
             <label for="x_distance">X:</label>
@@ -495,13 +490,23 @@
             <input type="number" id="y_distance" name="y_distance" placeholder="cm" required>
             <button class="buttonGreen" onclick="startNewScan()">Start Scan</button>
         </div>
+<!-- 
+        <div id="loader-container">
+            <div class="loader">
+                <span></span>
+            </div>
+        </div> -->
 
+        <div id="scan-status-container" style="display: none; margin-bottom: 10px;">
+            <p id="scan-status" style="font-size: 18px; font-weight: bold;"></p>
+        </div>
+        
         <div id="progress-bar-container" style="display: none; margin-top: 20px;">
             <div style="width: 100%; background-color: #f3f3f3; border: 1px solid #ccc; border-radius: 5px;">
-                <div id="progress-bar" style="width: 0%; height: 30px; background-color: #4caf50; text-align: center; line-height: 30px; color: white; border-radius: 5px;">0%</div>
+                <div id="progress-bar" style="width: 0%; height: 30px; background-color: #4caf50; text-align: center; line-height: 30px; color: rgb(0, 0, 0); border-radius: 5px;">0%</div>
             </div>
         </div>
-
+        
         <div class="input-container" id="stop-scan-container" style="display: none;">
             <button class="buttonRed" onclick="stopScan()">Stop Scan</button>
         </div>
@@ -635,9 +640,14 @@
                             progressBar.style.width = `${progress}%`;
                             progressBar.innerText = `${progress.toFixed(2)}%`;
 
+                            // Update de status van de scan
+                            updateScanStatus(data.scan_status);
+
+                            // Controleer of de voortgang 100% heeft bereikt
                             if (progress >= 100) {
                                 clearInterval(scanInterval);
                                 alert('Scan voltooid!');
+                                stopScan(); // Roep de stopScan-functie aan
                             }
                         }
                     })
@@ -650,14 +660,6 @@
         function stopProgressBar() {
             clearInterval(scanInterval);
             document.getElementById('progress-bar-container').style.display = 'none';
-        }
-
-        function stopScan() {
-            // Verberg de loader
-            document.getElementById('loader-container').style.display = 'none';
-
-            // Hier kun je eventuele logica toevoegen voor het stoppen van de scan
-            console.log("Scan gestopt");
         }
 
         function move(direction) {
@@ -819,7 +821,7 @@
                 .then(data => {
                     if (data.status === 'success') {
                         console.log('Scan gestart!');
-                        document.getElementById('loader-container').style.display = 'flex';
+                        // document.getElementById('loader-container').style.display = 'flex';
                         document.getElementById('input-container').style.display = 'none';
                         document.getElementById('stop-scan-container').style.display = 'block';
                         startProgressBar(); // Start de progress bar
@@ -849,9 +851,12 @@
                     console.log('Scan succesvol gestopt');
                     document.getElementById('input-container').style.display = 'block';
                     document.getElementById('stop-scan-container').style.display = 'none';
-                    document.getElementById('loader-container').style.display = 'none';
+                    // document.getElementById('loader-container').style.display = 'none';
+                    document.getElementById('progress-bar-container').style.display = 'none';
                     document.getElementById('x_distance').value = '';
                     document.getElementById('y_distance').value = '';
+                    document.getElementById('progress-bar').style.width = '0%';
+                    document.getElementById('progress-bar').innerText = '0%';
                     stopProgressBar(); // Verberg de progress bar
                 } else {
                     alert('Er is een fout opgetreden bij het stoppen van de scan');
@@ -860,6 +865,23 @@
             .catch(error => {
                 console.error('Error:', error);
             });
+        }
+
+        function updateScanStatus(status) {
+            const statusContainer = document.getElementById('scan-status-container');
+            const statusText = document.getElementById('scan-status');
+
+            if (status === 'Epoxy found') {
+                statusContainer.style.display = 'block';
+                statusText.textContent = 'Epoxy found';
+                statusText.style.color = 'red'; // Maak de tekst rood
+            } else if (status === 'Epoxy not found') {
+                statusContainer.style.display = 'block';
+                statusText.textContent = 'Epoxy not found';
+                statusText.style.color = 'green'; // Maak de tekst groen
+            } else {
+                statusContainer.style.display = 'none';
+            }
         }
 
         function updateImage() {
