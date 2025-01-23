@@ -199,15 +199,39 @@ def epoxy_data():
 
     if not json_file_path.exists():
         print(f"File not found: {json_file_path}")
-        return jsonify(error="File not found", data={"epoxy_points": []})
+        return jsonify(error="File not found", data={"mold_dimensions": {"x": 0, "y": 0}, "epoxy_points": []})
 
     try:
         with open(json_file_path, 'r') as file:
-            data = file.read()
-        return jsonify(data=json.loads(data))
+            data = json.load(file)
+        return jsonify(data=data)
     except Exception as e:
         print(f"Error reading JSON file: {e}")
-        return jsonify(error=str(e), data={"epoxy_points": []})
+        return jsonify(error=str(e), data={"mold_dimensions": {"x": 0, "y": 0}, "epoxy_points": []})
+
+@app.route('/update_epoxy_point', methods=['POST'])
+def update_epoxy_point():
+    epoxy_dir = Path(__file__).parent / "Epoxy"
+    json_file_path = epoxy_dir / "epoxy.json"
+
+    try:
+        data = request.get_json()
+        point_id = data.get('id')
+        removed = data.get('removed')
+
+        with open(json_file_path, 'r') as file:
+            epoxy_data = json.load(file)
+
+        for point in epoxy_data['epoxy_points']:
+            if point['id'] == point_id:
+                point['removed'] = removed
+
+        with open(json_file_path, 'w') as file:
+            json.dump(epoxy_data, file, indent=4)
+
+        return jsonify({"status": "success"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/move_steps', methods=['POST'])
 def move_steps():

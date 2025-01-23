@@ -295,6 +295,21 @@
             font-size: 1rem;
         }
 
+        @keyframes explode {
+            0% {
+                transform: scale(1);
+                opacity: 1;
+            }
+            50% {
+                transform: scale(1.5);
+                opacity: 0.5;
+            }
+            100% {
+                transform: scale(2);
+                opacity: 0;
+            }
+        }
+
         .buttonMove:hover {
             background-color: #232e32;
         } 
@@ -519,6 +534,7 @@
             <table id="epoxy-table" style="width: 100%; border-collapse: collapse; margin: 20px 0;">
                 <thead>
                     <tr>
+                        <th style="padding: 10px; background-color: #1f4f66; color: white; text-align: center;">#</th>
                         <th style="padding: 10px; background-color: #1f4f66; color: white; text-align: center;">X Position</th>
                         <th style="padding: 10px; background-color: #1f4f66; color: white; text-align: center;">Y Position</th>
                         <th style="padding: 10px; background-color: #1f4f66; color: white; text-align: center;">Removed</th>
@@ -762,10 +778,8 @@
             fetch('/epoxy_data')
                 .then(response => response.json())
                 .then(data => {
-
                     if (data.data) {
                         updateMoldVisualization(data.data);
-                        // Rest of the table update code...
                     }
                     const tableBody = document.getElementById('epoxy-table-body');
                     tableBody.innerHTML = '';
@@ -774,13 +788,49 @@
                         data.data.epoxy_points.forEach(point => {
                             const row = document.createElement('tr');
                             row.innerHTML = `
-                                <td style="padding: 8px; border: 1px solid #ddd;">${point.x}</td>
-                                <td style="padding: 8px; border: 1px solid #ddd;">${point.y}</td>
-                                <td style="padding: 8px; border: 1px solid #ddd;">
-                                    <input type="checkbox" class="epoxy-checkbox" data-x="${point.x}" data-y="${point.y}">
+                                <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${point.id}</td>
+                                <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${point.x}</td>
+                                <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${point.y}</td>
+                                <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">
+                                    <input type="checkbox" class="epoxy-checkbox" data-id="${point.id}" ${point.removed ? 'checked' : ''}>
                                 </td>
                             `;
                             tableBody.appendChild(row);
+                        });
+
+                        // Add checkbox event listeners
+                        document.querySelectorAll('.epoxy-checkbox').forEach(checkbox => {
+                            checkbox.addEventListener('change', function() {
+                                if (this.checked) {
+                                    const pointId = parseInt(this.getAttribute('data-id'));
+                                    // Find and animate the number before removing
+                                    const text = document.querySelector(`text[data-id="${pointId}"]`);
+                                    if (text) {
+                                        text.style.animation = 'explode 0.5s forwards';
+                                        setTimeout(() => {
+                                            text.remove();
+                                        }, 500);
+                                    }
+                                }
+
+                                
+                                fetch('/update_epoxy_point', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                    },
+                                    body: JSON.stringify({
+                                        id: pointId,
+                                        removed: this.checked
+                                    })
+                                })
+                                .then(response => response.json())
+                                .then(data => {
+                                    if (data.status === "success") {
+                                        updateEpoxyTable(); // Refresh the visualization
+                                    }
+                                });
+                            });
                         });
                     }
                 })
@@ -859,31 +909,21 @@
                 
                 // Update epoxy points position
                 data.epoxy_points.forEach(point => {
-                    const cross = document.createElementNS("http://www.w3.org/2000/svg", "g");
-                    const size = 5;
-                    
-                    const yPos = yOffset + (data.mold_dimensions.x * scale) - (point.x * scale);
-                    const xPos = xOffset + (point.y * scale);
-                    
-                    const line1 = document.createElementNS("http://www.w3.org/2000/svg", "line");
-                    line1.setAttribute("x1", xPos - size);
-                    line1.setAttribute("y1", yPos - size);
-                    line1.setAttribute("x2", xPos + size);
-                    line1.setAttribute("y2", yPos + size);
-                    line1.setAttribute("stroke", "red");
-                    line1.setAttribute("stroke-width", "2");
-                    
-                    const line2 = document.createElementNS("http://www.w3.org/2000/svg", "line");
-                    line2.setAttribute("x1", xPos - size);
-                    line2.setAttribute("y1", yPos + size);
-                    line2.setAttribute("x2", xPos + size);
-                    line2.setAttribute("y2", yPos - size);
-                    line2.setAttribute("stroke", "red");
-                    line2.setAttribute("stroke-width", "2");
-                    
-                    cross.appendChild(line1);
-                    cross.appendChild(line2);
-                    svg.appendChild(cross);
+                    if (!point.removed) {  // Only show points that aren't removed
+                        const yPos = yOffset + (data.mold_dimensions.x * scale) - (point.x * scale);
+                        const xPos = xOffset + (point.y * scale);
+                        
+                        const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                        text.setAttribute("x", xPos);
+                        text.setAttribute("y", yPos);
+                        text.setAttribute("text-anchor", "middle");
+                        text.setAttribute("dominant-baseline", "middle");
+                        text.setAttribute("fill", "red");
+                        text.setAttribute("data-id", point.id);
+                        text.setAttribute("font-size", "14px");
+                        text.textContent = point.id;
+                        svg.appendChild(text);
+                    }
                 });
             }
         }

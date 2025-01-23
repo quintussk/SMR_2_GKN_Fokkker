@@ -1,11 +1,26 @@
 {
     "mold_dimensions": {
-        "x": 300,
-        "y": 150
+        "x": 100,
+        "y": 100
     },
     "epoxy_points": [
-        {"x": 10, "y": 20},
-        {"x": 30, "y": 45},
-        {"x": 60, "y": 65}
+        {
+            "id": 1,
+            "x": 10,
+            "y": 20,
+            "removed": false
+        },
+        {
+            "id": 2,
+            "x": 30,
+            "y": 45,
+            "removed": false
+        },
+        {
+            "id": 3,
+            "x": 60,
+            "y": 65,
+            "removed": false
+        }
     ]
 }
