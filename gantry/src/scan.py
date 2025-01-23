@@ -76,6 +76,7 @@ class Scanning:
         """
         if hasattr(self, "scan_active"):
             self.scan_active = False
+            await self.arduinoClass.Relay("OFF")
             print("Scanning has been stopped by the user.")
         else:
             print("Scanning is not active.")

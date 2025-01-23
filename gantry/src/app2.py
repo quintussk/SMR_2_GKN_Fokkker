@@ -2,7 +2,7 @@ import cv2
 
 def open_camera():
     # Open de standaardcamera (camera index 0)
-    cap = cv2.VideoCapture(4)
+    cap = cv2.VideoCapture(2)
 
     if not cap.isOpened():
         print("Error: Kan de camera niet openen")
