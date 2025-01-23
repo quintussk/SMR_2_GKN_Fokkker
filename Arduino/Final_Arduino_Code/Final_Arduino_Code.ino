@@ -9,6 +9,7 @@
 #define DIR_PIN_2 9
 #define STEP_PIN_3 12
 #define DIR_PIN_3 13
+#define RELAY_PIN 30
 
 #define limitSwitchRightPin 6
 #define limitSwitchLeftPin 5
@@ -40,6 +41,8 @@ void setup() {
   // Start serial communication
   Serial.begin(9600);
 
+  pinMode(RELAY_PIN,OUTPUT);
+
   // Set maximum speed and acceleration for both motors
   stepper1.setMaxSpeed(1000);
   stepper1.setAcceleration(500);
@@ -54,6 +57,8 @@ void setup() {
 
   pinMode(limitSwitchRightPin, INPUT_PULLUP);
   pinMode(limitSwitchLeftPin, INPUT_PULLUP);
+
+  digitalWrite(RELAY_PIN,HIGH);
 
   // Attach the servo to the pin
   myServo.attach(SERVO_PIN);
@@ -213,6 +218,16 @@ void loop() {
       else{
         sendFeedback("Camera not on position");
       }
+    }
+
+    else if (input.equals("RELAY:OFF")){
+      digitalWrite(RELAY_PIN, HIGH);
+      Serial.println("driver off");
+    }
+
+    else if (input.equals("RELAY:ON")){
+      digitalWrite(RELAY_PIN, LOW); 
+      Serial.println("driver on");     
     }
   }
   

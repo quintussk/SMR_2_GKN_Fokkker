@@ -148,6 +148,17 @@ class ArduinoConnection:
             else:
                 print("Ongeldige motor")
 
+    async def Relay(self, state: str):
+        """
+        Zet de relay aan of uit.
+        """
+        if self.connection:
+            if state == "ON":
+                self.send_command("RELAY:ON")
+            elif state == "OFF":
+                self.send_command("RELAY:OFF")
+            else:
+                print("Ongeldige state")
 
     async def check_camera(self) -> bool:
         """

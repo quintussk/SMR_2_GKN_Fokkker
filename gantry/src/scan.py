@@ -80,6 +80,7 @@ class Scanning:
         - Calculates the movement plan based on total X and Y dimensions.
         - Executes the movement plan step by step.
         """
+        await self.arduinoClass.Relay("ON")
         await self.check_if_camera_is_home()
         await self.arduinoClass.change_speed_motor(motor="Mold", speed=500)
         await self.arduinoClass.change_speed_motor(motor="Camera", speed=1000)
