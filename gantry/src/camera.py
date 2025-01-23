@@ -6,6 +6,7 @@ import numpy as np
 import asyncio
 import threading
 from ultralytics import YOLO  # Import YOLO
+import json
 
 class Camera:
     def __init__(self, index=4):
@@ -101,6 +102,48 @@ class Camera:
             else:
                 time.sleep(0.1)  # Voorkomt continu loopen als er niets te verwerken is
 
+    def update_json(self, mold_name: str, coords, detections):
+        epoxy_dir = Path(__file__).parent / "Epoxy"
+        json_file_path = epoxy_dir / "epoxy.json"
+
+        try:
+            # Extract scan coordinates from filename
+            scan_x, scan_y = coords
+
+            # Load existing JSON
+            with open(json_file_path, 'r') as file:
+                data = json.load(file)
+
+            # Convert YOLO detections to real world coordinates and add to epoxy points
+            for result in detections:
+                boxes = result.boxes
+                for i, box in enumerate(boxes):
+                    x1, y1, x2, y2 = box.xyxy[0].tolist()
+                    
+                    # Calculate center point of detection
+                    center_x = (x1 + x2) / 2
+                    center_y = (y1 + y2) / 2
+                    
+                    # Convert to real world coordinates by adding scan position
+                    real_x = scan_x + (center_x / self.camera.get(cv2.CAP_PROP_FRAME_WIDTH)) 
+                    real_y = scan_y + (center_y / self.camera.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+                    # Add new point
+                    point = {
+                        "id": len(data["epoxy_points"]) + 1,
+                        "x": float(real_x), 
+                        "y": float(real_y),
+                        "removed": False
+                    }
+                    data["epoxy_points"].append(point)
+
+            # Save updated JSON
+            with open(json_file_path, 'w') as file:
+                json.dump(data, file, indent=4)
+
+        except Exception as e:
+            print(f"Error updating JSON: {e}")
+
     def process_image(self, mold_name: str, filename: str, frame):
         """
         Verwerkt de afbeelding met YOLO-inferentie en sticht vervolgens de afbeelding.
@@ -110,6 +153,9 @@ class Camera:
 
             # Voer YOLO-inferentie uit
             results = self.yolo_model(frame)
+
+            # After YOLO detection:
+            self.update_json(mold_name, self.extract_coordinates(filename), results)
 
             for result in results:
                 boxes = result.boxes  # Haal de bounding boxes op
@@ -126,7 +172,9 @@ class Camera:
             # Verplaats het verwerkte beeld naar de permanente map
             path_temp = Path(__file__).parent / "Pictures" / mold_name / "temporary"
             path_permanent = Path(__file__).parent / "Pictures" / mold_name / "permanent"
+            path_YOLO = Path(__file__).parent / "Pictures" / mold_name / "YOLO"
             path_permanent.mkdir(parents=True, exist_ok=True)
+            path_YOLO.mkdir(parents=True, exist_ok=True)
 
             temp_filepath = path_temp / filename
             permanent_filepath = path_permanent / filename
