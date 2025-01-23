@@ -36,8 +36,8 @@ class Camera:
         self.processing_thread.start()
 
         # Start achtergrond thread om frames te lezen
-        self.capture_thread = threading.Thread(target=self._capture_frames, daemon=True)
-        self.capture_thread.start()
+        # self.capture_thread = threading.Thread(target=self._capture_frames, daemon=True)
+        # self.capture_thread.start()
 
     def _capture_frames(self):
         """
@@ -60,22 +60,32 @@ class Camera:
 
     async def take_picture(self, mold_name: str, filename: str):
         """
-        Slaat het huidige frame op en voegt het toe aan de verwerkingswachtrij.
+        Neemt een foto door de camera te laten stabiliseren en het 6e frame vast te leggen.
         """
-        await asyncio.sleep(2)
-        if self.current_frame is None:
-            raise RuntimeError("No frame available to capture.")
+        # Zorg dat de camera voldoende tijd krijgt om zich aan te passen
+        for _ in range(6):  # Pak meerdere frames om de camera te laten stabiliseren
+            self.camera.grab()
+
+        # Haal het 6e frame op
+        success, frame = self.camera.retrieve()
+        if not success:
+            raise RuntimeError("Failed to retrieve frame from the camera.")
         
+        # Pas helderheid aan
+        frame = self.adjust_brightness(frame, alpha=1.5, beta=50)
+
+        # Maak directories aan
         path_temp = Path(__file__).parent / "Pictures" / mold_name / "temporary"
         path_temp.mkdir(parents=True, exist_ok=True)
 
+        # Opslaan van de afbeelding
         temp_filepath = path_temp / filename
-        cv2.imwrite(str(temp_filepath), self.current_frame)
+        cv2.imwrite(str(temp_filepath), frame)
         print(f"Temporary image saved at: {temp_filepath}")
 
-        # Voeg het frame toe aan de wachtrij
+        # Voeg het frame toe aan de verwerkingswachtrij
         with self.processing_lock:
-            self.process_queue.append((mold_name, filename, self.current_frame))
+            self.process_queue.append((mold_name, filename, frame))
 
     def _process_images_thread(self):
         """
@@ -235,12 +245,12 @@ class Camera:
         print("Camera and processing threads released.")
 
     def generate_frames(self):
-        """
-        Continu levert frames vanuit de achtergrondfunctie.
-        """
         while True:
-            if self.current_frame is not None:
-                ret, buffer = cv2.imencode('.jpg', self.current_frame)
+            success, frame = self.camera.read()
+            if not success:
+                break
+            else:
+                ret, buffer = cv2.imencode('.jpg', frame)
                 if not ret:
                     print("Frame encoding failed")
                     break
@@ -248,9 +258,6 @@ class Camera:
 
                 yield (b'--frame\r\n'
                        b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
-            else:
-                time.sleep(0.03)
-
 
 async def main():
     camera = Camera()

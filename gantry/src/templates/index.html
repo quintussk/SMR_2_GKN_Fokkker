@@ -475,8 +475,8 @@
     <!-- Tabs -->
     <div class="tabs">
         <button class="tab-button" onclick="openTab(event, 'tab1')">Home</button>
+        <button class="tab-button" onclick="openTab(event, 'stitch')">stitched</button>
         <button class="tab-button" onclick="openTab(event, 'tab2')">Camera feed RGB</button>
-
         <button class="tab-button" onclick="openTab(event, 'move')">Move</button>
         <button class="tab-button" onclick="openTab(event, 'capture')">Capture</button>
     </div>
@@ -494,13 +494,16 @@
             <button class="buttonRed" onclick="stopScan()">Stop Scan</button>
         </div>
 
-        <div id="latest-image-container">
-            <img id="latest-image" src="{{ image_url }}" alt="Latest Image" style="max-width: 100%; height: auto;">
-        </div>
     </div>
     <div id="loader-container">
         <div class="loader">
             <span></span>
+        </div>
+    </div>
+
+    <div id="stitch" class="tab-content">
+        <div id="latest-image-container">
+            <img id="latest-image" src="{{ image_url }}" alt="Latest Image" style="max-width: 100%; height: auto;">
         </div>
     </div>
     
