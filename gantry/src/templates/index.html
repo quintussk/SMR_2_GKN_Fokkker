@@ -474,20 +474,26 @@
 
     <!-- Tabs -->
     <div class="tabs">
-        <button class="tab-button" onclick="openTab(event, 'tab1')">Home</button>
+        <button class="tab-button" onclick="openTab(event, 'home')">Home</button>
         <button class="tab-button" onclick="openTab(event, 'stitch')">stitched</button>
         <button class="tab-button" onclick="openTab(event, 'tab2')">Camera feed RGB</button>
         <button class="tab-button" onclick="openTab(event, 'move')">Move</button>
         <button class="tab-button" onclick="openTab(event, 'capture')">Capture</button>
     </div>
 
-    <div id="tab1" class="tab-content active">
+    <div id="loader-container">
+        <div class="loader">
+            <span></span>
+        </div>
+    </div>
+
+    <div id="home" class="tab-content active">
         <div class="input-container" id="input-container">
             <label for="x_distance">X:</label>
             <input type="number" id="x_distance" name="x_distance" placeholder="cm" required>
             <label for="y_distance">Y:</label>
             <input type="number" id="y_distance" name="y_distance" placeholder="cm" required>
-            <button class="buttonGreen" id="start-scan-button" onclick="startNewScan()">Start Scan</button>
+            <button class="buttonGreen" onclick="startNewScan()">Start Scan</button>
         </div>
     
         <div class="input-container" id="stop-scan-container" style="display: none;">
@@ -769,6 +775,8 @@
                 .then(data => {
                     if (data.status === 'success') {
                         console.log('Scan gestart!');
+                        // Toon de laadscherm
+                        document.getElementById('loader-container').style.display = 'flex';
                         // Verberg de invoervelden en toon de stopknop
                         document.getElementById('input-container').style.display = 'none';
                         document.getElementById('stop-scan-container').style.display = 'block';
@@ -800,6 +808,9 @@
                     // Toon de invoervelden opnieuw en verberg de stopknop
                     document.getElementById('input-container').style.display = 'block';
                     document.getElementById('stop-scan-container').style.display = 'none';
+
+                    // Verwijder de Loader Container
+                    document.getElementById('loader-container').style.display = 'none';
 
                     // Reset de invoervelden
                     document.getElementById('x_distance').value = '';
