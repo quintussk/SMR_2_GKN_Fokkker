@@ -495,7 +495,13 @@
             <input type="number" id="y_distance" name="y_distance" placeholder="cm" required>
             <button class="buttonGreen" onclick="startNewScan()">Start Scan</button>
         </div>
-    
+
+        <div id="progress-bar-container" style="display: none; margin-top: 20px;">
+            <div style="width: 100%; background-color: #f3f3f3; border: 1px solid #ccc; border-radius: 5px;">
+                <div id="progress-bar" style="width: 0%; height: 30px; background-color: #4caf50; text-align: center; line-height: 30px; color: white; border-radius: 5px;">0%</div>
+            </div>
+        </div>
+
         <div class="input-container" id="stop-scan-container" style="display: none;">
             <button class="buttonRed" onclick="stopScan()">Stop Scan</button>
         </div>
@@ -605,6 +611,45 @@
 
             // Hier kun je eventuele logica toevoegen voor het starten van de scan
             console.log("Scan gestart");
+        }
+
+
+        function startProgressBar() {
+            // Toon de progress bar
+            document.getElementById('progress-bar-container').style.display = 'block';
+            document.getElementById('progress-bar').style.width = '0%';
+            document.getElementById('progress-bar').innerText = '0%';
+
+            // Start een interval om periodiek de status op te halen
+            scanInterval = setInterval(() => {
+                fetch('/status_scan')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'idle') {
+                            console.log('Scan is niet actief');
+                            clearInterval(scanInterval);
+                            document.getElementById('progress-bar-container').style.display = 'none';
+                        } else if (data.progress) {
+                            const progressBar = document.getElementById('progress-bar');
+                            const progress = parseFloat(data.progress);
+                            progressBar.style.width = `${progress}%`;
+                            progressBar.innerText = `${progress.toFixed(2)}%`;
+
+                            if (progress >= 100) {
+                                clearInterval(scanInterval);
+                                alert('Scan voltooid!');
+                            }
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error fetching scan status:', error);
+                    });
+            }, 1000); // Update elke seconde
+        }
+
+        function stopProgressBar() {
+            clearInterval(scanInterval);
+            document.getElementById('progress-bar-container').style.display = 'none';
         }
 
         function stopScan() {
@@ -763,7 +808,6 @@
             if (xDistance && yDistance) {
                 console.log(`X afstand: ${xDistance} cm, Y afstand: ${yDistance} cm`);
 
-                // Verstuur de gegevens naar de server
                 fetch('/start_new_scan', {
                     method: 'POST',
                     headers: {
@@ -775,11 +819,10 @@
                 .then(data => {
                     if (data.status === 'success') {
                         console.log('Scan gestart!');
-                        // Toon de laadscherm
                         document.getElementById('loader-container').style.display = 'flex';
-                        // Verberg de invoervelden en toon de stopknop
                         document.getElementById('input-container').style.display = 'none';
                         document.getElementById('stop-scan-container').style.display = 'block';
+                        startProgressBar(); // Start de progress bar
                     } else {
                         alert('Er is een fout opgetreden');
                     }
@@ -794,7 +837,6 @@
 
         function stopScan() {
             console.log('Scan gestopt!');
-            // Verstuur een verzoek om de scan te stoppen
             fetch('/stop_scan', {
                 method: 'POST',
                 headers: {
@@ -805,16 +847,12 @@
             .then(data => {
                 if (data.status === 'success') {
                     console.log('Scan succesvol gestopt');
-                    // Toon de invoervelden opnieuw en verberg de stopknop
                     document.getElementById('input-container').style.display = 'block';
                     document.getElementById('stop-scan-container').style.display = 'none';
-
-                    // Verwijder de Loader Container
                     document.getElementById('loader-container').style.display = 'none';
-
-                    // Reset de invoervelden
                     document.getElementById('x_distance').value = '';
                     document.getElementById('y_distance').value = '';
+                    stopProgressBar(); // Verberg de progress bar
                 } else {
                     alert('Er is een fout opgetreden bij het stoppen van de scan');
                 }

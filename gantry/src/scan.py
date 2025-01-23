@@ -34,6 +34,9 @@ class Scanning:
         self.current_X = 0  # Current X position in cm
         self.current_Y = 0  # Current Y position in cm
 
+        self.completed_steps = 0
+        self.total_steps = 0
+
     async def check_if_camera_is_home(self):
         """
         Checks if the camera is at the home position.
@@ -43,6 +46,32 @@ class Scanning:
             await self.arduinoClass.change_speed_motor("Camera",100)
             await self.arduinoClass.home_camera()
         print("Camera is homed")
+
+    def status_scan(self):
+        """
+        Geeft de huidige status van de scan terug, inclusief voortgang in procenten.
+        """
+        if not hasattr(self, "total_steps") or not hasattr(self, "completed_steps"):
+            return {"status": "idle", "progress": "0%", "current_X": self.current_X, "current_Y": self.current_Y}
+
+        progress = (self.completed_steps / self.total_steps) * 100 if self.total_steps > 0 else 0
+
+        status = {
+            "current_X": self.current_X,
+            "current_Y": self.current_Y,
+            "progress": f"{progress:.2f}%",
+            "completed_steps": self.completed_steps,
+            "total_steps": self.total_steps,
+            "scan_active": hasattr(self, "scan_active") and self.scan_active
+        }
+        print(f"Scan status: {status}")
+        return status
+
+
+    async def stop_scanning(self):
+        """
+        Stops the scanning process.
+        """
         
 
     async def Start_Scanning(self, X_Total: int, Y_Total: int, mold: str):
@@ -51,11 +80,10 @@ class Scanning:
         - Calculates the movement plan based on total X and Y dimensions.
         - Executes the movement plan step by step.
         """
-
         await self.check_if_camera_is_home()
-        # Ensure the inputs are integers
         await self.arduinoClass.change_speed_motor(motor="Mold", speed=500)
         await self.arduinoClass.change_speed_motor(motor="Camera", speed=1000)
+
         try:
             X_Total = int(X_Total)
             Y_Total = int(Y_Total)
@@ -65,17 +93,33 @@ class Scanning:
         # Calculate the movement plan for the given X_Total and Y_Total dimensions
         movement_plan = await self.Calculate_Movement(X_Total, Y_Total, "Negative")
 
-        # Execute each movement in the calculated plan
+        self.total_steps = len(movement_plan)  # Totaal aantal stappen in het movement plan
+        self.completed_steps = 0  # Teller voor voltooide stappen
+
+        # Zet scan_active naar True voordat je start
+        self.scan_active = True
+
         for step in movement_plan:
+            if not self.scan_active:
+                print("Scan onderbroken door gebruiker.")
+                break
+
             if step["axis"] == "Y":
-                # Move the camera along the Y-axis
                 await self.Move_Camera(step["steps"])
             elif step["axis"] == "X":
-                # Move the gantry along the X-axis
                 await self.Move_Gantry(step["steps"])
-            # Take a photo at the current location
+
+            # Update teller voor voltooide stappen
+            self.completed_steps += 1
+            progress = (self.completed_steps / self.total_steps) * 100  # Bereken voortgang in procenten
+            print(f"Scan voortgang: {progress:.2f}% ({self.completed_steps}/{self.total_steps} stappen voltooid)")
+
+            # Maak een foto op de huidige locatie
             await self.camera.take_picture(mold_name=mold, filename=f"{mold}_image_X{self.current_X}_Y{self.current_Y}.jpg")
             print(f"Photo taken at X: {self.current_X} cm, Y: {self.current_Y} cm")
+        
+        self.scan_active = False
+        print("Scan voltooid of gestopt.")
 
     async def Calculate_Movement(self, X_Total: int, Y_Total: int, Direction: str):
             """

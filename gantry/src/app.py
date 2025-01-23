@@ -161,6 +161,15 @@ def start_new_scan():
     scan_thread.start()
     return jsonify({"status": "success", "message": "Scan gestart"})
 
+@app.route('/status_scan', methods=['GET'])
+def status_scan():
+    try:
+        # Dit is een voorbeeld. Zorg dat je `completed_steps` en `total_steps` bijhoudt in je Scanning klasse.
+        status = Gantry_Scan.status_scan()
+        return jsonify(status)
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 @app.route('/stop_scan', methods=['POST'])
 def stop_scan():
     print("Scan gestopt")
