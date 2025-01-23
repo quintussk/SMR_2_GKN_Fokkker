@@ -510,6 +510,24 @@
         <div class="input-container" id="stop-scan-container" style="display: none;">
             <button class="buttonRed" onclick="stopScan()">Stop Scan</button>
         </div>
+
+        <div class="mold-visualization" style="margin: 20px auto; width: 600px;">
+            <svg id="mold-svg" viewBox="0 0 600 600" style="border: 1px solid #ccc;"></svg>
+        </div>
+
+        <div class="epoxy-table-container" style="margin-top: 20px;">
+            <table id="epoxy-table" style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+                <thead>
+                    <tr>
+                        <th style="padding: 10px; background-color: #1f4f66; color: white; text-align: center;">X Position</th>
+                        <th style="padding: 10px; background-color: #1f4f66; color: white; text-align: center;">Y Position</th>
+                        <th style="padding: 10px; background-color: #1f4f66; color: white; text-align: center;">Removed</th>
+                    </tr>
+                </thead>
+                <tbody id="epoxy-table-body">
+                </tbody>
+            </table>
+        </div>
         
 
     </div>
@@ -740,6 +758,41 @@
             });
         }
 
+        function updateEpoxyTable() {
+            fetch('/epoxy_data')
+                .then(response => response.json())
+                .then(data => {
+
+                    if (data.data) {
+                        updateMoldVisualization(data.data);
+                        // Rest of the table update code...
+                    }
+                    const tableBody = document.getElementById('epoxy-table-body');
+                    tableBody.innerHTML = '';
+                    
+                    if (data.data && data.data.epoxy_points) {
+                        data.data.epoxy_points.forEach(point => {
+                            const row = document.createElement('tr');
+                            row.innerHTML = `
+                                <td style="padding: 8px; border: 1px solid #ddd;">${point.x}</td>
+                                <td style="padding: 8px; border: 1px solid #ddd;">${point.y}</td>
+                                <td style="padding: 8px; border: 1px solid #ddd;">
+                                    <input type="checkbox" class="epoxy-checkbox" data-x="${point.x}" data-y="${point.y}">
+                                </td>
+                            `;
+                            tableBody.appendChild(row);
+                        });
+                    }
+                })
+                .catch(error => console.error('Error fetching epoxy data:', error));
+        }
+
+        // Update table every 5 seconds
+        setInterval(updateEpoxyTable, 5000);
+
+        // Initial table load
+        document.addEventListener('DOMContentLoaded', updateEpoxyTable);
+
         function stopCapture() {
             fetch('/stop_capture', {
                 method: 'POST'
@@ -755,6 +808,84 @@
             .catch(error => {
                 console.error("Error:", error);
             });
+        }
+
+        function updateMoldVisualization(data) {
+            const svg = document.getElementById('mold-svg');
+            const padding = 50;
+            const svgWidth = 600;
+            const svgHeight = 600;
+            const availableWidth = svgWidth - (padding * 2);
+            const availableHeight = svgHeight - (padding * 2);
+            
+            svg.innerHTML = '';
+            
+            if (data.mold_dimensions) {
+                const scale = Math.min(
+                    availableWidth / data.mold_dimensions.y,
+                    availableHeight / data.mold_dimensions.x
+                );
+
+                // Calculate centering offsets
+                const xOffset = (svgWidth - (data.mold_dimensions.y * scale)) / 2;
+                const yOffset = (svgHeight - (data.mold_dimensions.x * scale)) / 2;
+                
+                // Draw mold outline with centering
+                const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                rect.setAttribute("x", xOffset);
+                rect.setAttribute("y", yOffset);
+                rect.setAttribute("width", data.mold_dimensions.y * scale);
+                rect.setAttribute("height", data.mold_dimensions.x * scale);
+                rect.setAttribute("fill", "none");
+                rect.setAttribute("stroke", "#1f4f66");
+                rect.setAttribute("stroke-width", "2");
+                svg.appendChild(rect);
+                
+                // Update axes labels position
+                const xLabel = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                xLabel.setAttribute("x", xOffset - 30);
+                xLabel.setAttribute("y", yOffset + (data.mold_dimensions.x * scale) / 2);
+                xLabel.setAttribute("text-anchor", "middle");
+                xLabel.setAttribute("transform", `rotate(-90, ${xOffset - 30}, ${yOffset + (data.mold_dimensions.x * scale) / 2})`);
+                xLabel.textContent = "X";
+                svg.appendChild(xLabel);
+                
+                const yLabel = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                yLabel.setAttribute("x", xOffset + (data.mold_dimensions.y * scale) / 2);
+                yLabel.setAttribute("y", yOffset + (data.mold_dimensions.x * scale) + 30);
+                yLabel.setAttribute("text-anchor", "middle");
+                yLabel.textContent = "Y";
+                svg.appendChild(yLabel);
+                
+                // Update epoxy points position
+                data.epoxy_points.forEach(point => {
+                    const cross = document.createElementNS("http://www.w3.org/2000/svg", "g");
+                    const size = 5;
+                    
+                    const yPos = yOffset + (data.mold_dimensions.x * scale) - (point.x * scale);
+                    const xPos = xOffset + (point.y * scale);
+                    
+                    const line1 = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                    line1.setAttribute("x1", xPos - size);
+                    line1.setAttribute("y1", yPos - size);
+                    line1.setAttribute("x2", xPos + size);
+                    line1.setAttribute("y2", yPos + size);
+                    line1.setAttribute("stroke", "red");
+                    line1.setAttribute("stroke-width", "2");
+                    
+                    const line2 = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                    line2.setAttribute("x1", xPos - size);
+                    line2.setAttribute("y1", yPos + size);
+                    line2.setAttribute("x2", xPos + size);
+                    line2.setAttribute("y2", yPos - size);
+                    line2.setAttribute("stroke", "red");
+                    line2.setAttribute("stroke-width", "2");
+                    
+                    cross.appendChild(line1);
+                    cross.appendChild(line2);
+                    svg.appendChild(cross);
+                });
+            }
         }
 
         function captureImage() {

@@ -8,7 +8,7 @@ import threading
 from ultralytics import YOLO  # Import YOLO
 
 class Camera:
-    def __init__(self, index=2):
+    def __init__(self, index=4):
         self.camera = cv2.VideoCapture(index)
         if not self.camera.isOpened():
             raise ValueError(f"Camera with index {index} could not be opened.")

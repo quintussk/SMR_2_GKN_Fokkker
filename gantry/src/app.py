@@ -192,19 +192,22 @@ def stop_scan():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
     
-# @app.route('/epoxy_data', methods=['GET'])
-# def epoxy_data():
-#     # Pad naar het JSON-bestand
-#     epoxy_dir = Path(__file__).parent / "Epoxy"
-#     json_file_path = epoxy_dir / "epoxy.json"
+@app.route('/epoxy_data', methods=['GET'])
+def epoxy_data():
+    epoxy_dir = Path(__file__).parent / "Epoxy"
+    json_file_path = epoxy_dir / "epoxy.json"
 
-#     try:
-#         with open(json_file_path, 'r') as file:
-#             data = file.read()
-#         return jsonify(data=json.loads(data))
-#     except Exception as e:
-#         print(f"Error reading JSON file: {e}")
-#         return jsonify(data={"epoxy_points": []})  # Lege lijst als fallback
+    if not json_file_path.exists():
+        print(f"File not found: {json_file_path}")
+        return jsonify(error="File not found", data={"epoxy_points": []})
+
+    try:
+        with open(json_file_path, 'r') as file:
+            data = file.read()
+        return jsonify(data=json.loads(data))
+    except Exception as e:
+        print(f"Error reading JSON file: {e}")
+        return jsonify(error=str(e), data={"epoxy_points": []})
 
 @app.route('/move_steps', methods=['POST'])
 def move_steps():
