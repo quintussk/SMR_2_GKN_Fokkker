@@ -1,6 +1,7 @@
 import serial
 import time
 import asyncio
+from rich import print as print
 
 class ArduinoConnection:
     def __init__(self, port, baudrate=9600, timeout=1):
@@ -189,6 +190,7 @@ class ArduinoConnection:
         if self.camera_homed:
             return
         self.send_command("H0V30000")
+        await asyncio.sleep(1)
         while True:
             if self.connection and self.connection.in_waiting > 0:
                 try:
@@ -196,7 +198,7 @@ class ArduinoConnection:
                     feedback = self.connection.readline().decode().strip()
                     print(f"Feedback received: {feedback}")
                     # Check if the steppers have reached their location
-                    if feedback == "Steppers reached location":
+                    if feedback == "Stepper limit switch":
                         print("Confirmation received: Steppers have reached their destination!")
                         return True
                 except Exception as e:
@@ -219,11 +221,14 @@ class ArduinoConnection:
 
 if __name__ == "__main__":
     async def main():
-        arduino = ArduinoConnection(port="//dev/ttyACM1")
+        arduino = ArduinoConnection(port="//dev/ttyACM0")
         position_reached = await arduino.check_camera()
         if not position_reached:
+            await arduino.Relay("ON")
             await arduino.change_speed_motor("Camera",100)
             await arduino.home_camera()
         print("Camera is homed")
+        await arduino.Relay("OFF")
+
 
     asyncio.run(main())

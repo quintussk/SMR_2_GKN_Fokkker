@@ -7,6 +7,7 @@ import asyncio
 import threading
 from ultralytics import YOLO  # Import YOLO
 import json
+from rich import print as print
 
 class Camera:
     def __init__(self, index=4):
@@ -103,43 +104,74 @@ class Camera:
                 time.sleep(0.1)  # Voorkomt continu loopen als er niets te verwerken is
 
     def update_json(self, mold_name: str, coords, detections):
+        """
+        Update the JSON file with real-world coordinates of detected objects in centimeters.
+
+        Args:
+            mold_name (str): Name of the mold.
+            coords (tuple): The (scan_x, scan_y) coordinates of the camera's position (in cm).
+            detections: YOLO detections containing bounding box information.
+        """
         epoxy_dir = Path(__file__).parent / "Epoxy"
         json_file_path = epoxy_dir / "epoxy.json"
 
         try:
             # Extract scan coordinates from filename
             scan_x, scan_y = coords
+            print(f"Scan coordinates: ({scan_x}, {scan_y})")
 
             # Load existing JSON
-            with open(json_file_path, 'r') as file:
-                data = json.load(file)
+            if json_file_path.exists():
+                with open(json_file_path, "r") as file:
+                    data = json.load(file)
+            else:
+                data = {"epoxy_points": []}  # Initialize JSON structure if file doesn't exist
 
-            # Convert YOLO detections to real world coordinates and add to epoxy points
+            # Retrieve frame dimensions
+            frame_width = self.camera.get(cv2.CAP_PROP_FRAME_WIDTH)
+            frame_height = self.camera.get(cv2.CAP_PROP_FRAME_HEIGHT)
+
+            print(f"frame_width: {frame_width}, frame_height: {frame_height}")
+
+            if frame_width == 0 or frame_height == 0:
+                raise ValueError("Frame width or height is invalid. Ensure the camera is initialized correctly.")
+
+            # Define pixel-to-cm scale factor (adjust based on your camera's FOV)
+            pixel_to_cm_scale = 0.1047  # Example: 30 cm FOV / 1920 pixels
+
+            # Convert YOLO detections to real-world coordinates and add to epoxy points
             for result in detections:
                 boxes = result.boxes
                 for i, box in enumerate(boxes):
                     x1, y1, x2, y2 = box.xyxy[0].tolist()
-                    
-                    # Calculate center point of detection
+
+                    # Calculate center point of detection in image coordinates
                     center_x = (x1 + x2) / 2
                     center_y = (y1 + y2) / 2
-                    
-                    # Convert to real world coordinates by adding scan position
-                    real_x = scan_x + (center_x / self.camera.get(cv2.CAP_PROP_FRAME_WIDTH)) 
-                    real_y = scan_y + (center_y / self.camera.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-                    # Add new point
+                    print(f"Detection center (image): ({center_x}, {center_y})")
+
+                    # Convert to real-world coordinates in centimeters
+                    # different because X and Y are swapped in REAL World
+                    real_y = scan_y + ((center_x - frame_width / 2) * pixel_to_cm_scale)
+                    real_x = scan_x - ((center_y - frame_height / 2) * pixel_to_cm_scale)
+
+                    print(f"Converted real-world coordinates (cm): ({real_x}, {real_y})")
+
+                    # Add new point to JSON data
                     point = {
                         "id": len(data["epoxy_points"]) + 1,
-                        "x": float(real_x), 
+                        "x": float(real_x),
                         "y": float(real_y),
                         "removed": False
                     }
                     data["epoxy_points"].append(point)
 
             # Save updated JSON
-            with open(json_file_path, 'w') as file:
+            with open(json_file_path, "w") as file:
                 json.dump(data, file, indent=4)
+
+            print(f"Updated epoxy points saved to: {json_file_path}")
 
         except Exception as e:
             print(f"Error updating JSON: {e}")

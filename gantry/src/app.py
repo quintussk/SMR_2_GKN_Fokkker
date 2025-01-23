@@ -10,6 +10,7 @@ import threading
 import asyncio
 from pathlib import Path
 import json
+from rich import print as print
 
 app = Flask(__name__)
 

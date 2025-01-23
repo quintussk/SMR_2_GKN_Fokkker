@@ -1,6 +1,7 @@
 import asyncio
 from arduino import ArduinoConnection
 from camera import Camera
+from rich import print as print
 
 class Scanning:
     def __init__(self, arduinoClass: ArduinoConnection, camera: Camera):
