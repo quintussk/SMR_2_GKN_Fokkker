@@ -48,7 +48,7 @@ class Camera:
         while self.running:
             success, frame = self.camera.read()
             if success:
-                frame = self.adjust_brightness(frame, alpha=1.5, beta=50)
+                # frame = self.adjust_brightness(frame, alpha=1.5, beta=50)
                 self.current_frame = frame
             else:
                 print("Failed to read frame from camera")
