@@ -909,9 +909,11 @@
                 
                 // Update epoxy points position
                 data.epoxy_points.forEach(point => {
-                    if (!point.removed) {  // Only show points that aren't removed
+                    if (!point.removed) {
+                        // X coordinate - starts from bottom (0 at bottom)
                         const yPos = yOffset + (data.mold_dimensions.x * scale) - (point.x * scale);
-                        const xPos = xOffset + (point.y * scale);
+                        // Y coordinate - starts from right (0 at right), moves negative to the left
+                        const xPos = xOffset + (-point.y * scale);
                         
                         const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
                         text.setAttribute("x", xPos);

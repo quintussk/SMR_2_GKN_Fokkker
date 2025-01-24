@@ -190,7 +190,7 @@ class Scanning:
         """
         Movement of the gantry along the X-axis in steps.
         """
-        self.arduinoClass.send_steps(steps, 0)  # Send inverted steps to Arduino
+        await self.arduinoClass.send_steps(steps, 0)  # Send inverted steps to Arduino
         await self.arduinoClass.Wait_For_Location_Reached()
         # Update current X position
         self.current_X += int(round(steps / self.Steps_per_cm))
@@ -200,7 +200,7 @@ class Scanning:
         """
         Movement of the camera along the Y-axis in steps.
         """
-        self.arduinoClass.send_steps(0,steps)  # Send steps to Arduino
+        await self.arduinoClass.send_steps(0,steps)  # Send steps to Arduino
         await self.arduinoClass.Wait_For_Location_Reached()
         # Update current Y position
         self.current_Y += int(round(steps / self.Steps_per_cm))

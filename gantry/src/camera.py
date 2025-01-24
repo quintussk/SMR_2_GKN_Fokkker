@@ -133,11 +133,17 @@ class Camera:
 
             print(f"frame_width: {frame_width}, frame_height: {frame_height}")
 
+            center_frame_width = frame_width / 2
+            center_frame_height = frame_height / 2
+
             if frame_width == 0 or frame_height == 0:
                 raise ValueError("Frame width or height is invalid. Ensure the camera is initialized correctly.")
 
             # Define pixel-to-cm scale factor (adjust based on your camera's FOV)
             pixel_to_cm_scale = 0.1047  # Example: 30 cm FOV / 1920 pixels
+
+            pixels_per_mm = 1
+            pixels_per_cm = pixels_per_mm * 10
 
             # Convert YOLO detections to real-world coordinates and add to epoxy points
             for result in detections:
@@ -153,8 +159,8 @@ class Camera:
 
                     # Convert to real-world coordinates in centimeters
                     # different because X and Y are swapped in REAL World
-                    real_y = scan_y + ((center_x - frame_width / 2) * pixel_to_cm_scale)
-                    real_x = scan_x - ((center_y - frame_height / 2) * pixel_to_cm_scale)
+                    real_y = scan_y + ((center_x - center_frame_width) / pixels_per_cm)
+                    real_x = abs(scan_x) - ((center_y - center_frame_height) / pixels_per_cm)
 
                     print(f"Converted real-world coordinates (cm): ({real_x}, {real_y})")
 

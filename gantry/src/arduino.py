@@ -13,7 +13,7 @@ class ArduinoConnection:
             self.speed1 = 0
             self.direction2 = 0
             self.speed2 = 0
-            self.request_values()
+            # self.request_values()
             self.camera_homed = False
             
         except serial.SerialException as e:
@@ -33,19 +33,39 @@ class ArduinoConnection:
         else:
             print("No active connection to Arduino")
 
-    def send_steps(self, horizontal_step, vertical_step):
+    async def send_steps(self, horizontal_step, vertical_step):
         """
-        Sends the step values to the Arduino via the serial connection.
+        Sends the step values to the Arduino via the serial connection and waits for confirmation.
         """
         if self.connection:
             try:
+                # Stel het commando samen en stuur het naar de Arduino
                 command = f"H{horizontal_step}V{vertical_step}"
                 self.connection.write(f"{command}\n".encode())
                 print(f"Steps '{command}' sent to Arduino")
+
+                # Wacht op de feedback "Moving steppers..."
+                while True:
+                    if self.connection and self.connection.in_waiting > 0:
+                        try:
+                            # Lees feedback van de Arduino
+                            feedback = self.connection.readline().decode().strip()
+                            print(f"Feedback received: {feedback}")
+
+                            # Controleer of de feedback overeenkomt
+                            if feedback == "Moving steppers...":
+                                print("Bevestiging ontvangen: Steppers zijn begonnen te bewegen!")
+                                return True
+                        except Exception as e:
+                            print(f"Error reading feedback: {e}")
+                    
+                    # Voeg een korte pauze toe om CPU-gebruik te minimaliseren
+                    await asyncio.sleep(0.1)
             except Exception as e:
                 print(f"Error sending steps: {e}")
         else:
             print("No active connection to Arduino")
+            return False
 
     def change_speed(self, speed_value):
         if speed_value == "increase":
@@ -86,22 +106,29 @@ class ArduinoConnection:
 
     async def Wait_For_Location_Reached(self):
         """
-        Continuously listens to the Arduino until the 'Steppers reached location' message is received.
+        Continuously listens to the Arduino until the 'Moving steppers...' message is received
+        and subsequently waits for the 'Steppers reached location' message.
         """
-        print("Waiting for confirmation from Arduino...")
+        print("Waiting for confirmation that the steppers are moving...")
+        await asyncio.sleep(0.5)  # Kort wachten voordat het luisteren begint
+
+        moving_received = False
+
         while True:
             if self.connection and self.connection.in_waiting > 0:
                 try:
-                    # Read feedback from the Arduino
+                    # Lees feedback van de Arduino
                     feedback = self.connection.readline().decode().strip()
                     print(f"Feedback received: {feedback}")
-                    # Check if the steppers have reached their location
+
+                    # Controleer of de motoren hun locatie hebben bereikt
                     if feedback == "Steppers reached location":
                         print("Confirmation received: Steppers have reached their destination!")
                         return True
                 except Exception as e:
                     print(f"Error reading feedback: {e}")
-            await asyncio.sleep(0.1)  # Prevent CPU overuse by adding a short delay
+
+            await asyncio.sleep(0.1)  # Voorkom overbelasting van de CPU met een korte vertraging
 
     def request_values(self):
         """
@@ -135,19 +162,50 @@ class ArduinoConnection:
 
     async def change_speed_motor(self, motor: str, speed: int):
         """
-        Stelt de snelheid in voor een specifieke motor.
+        Stelt de snelheid in voor een specifieke motor en wacht op bevestiging.
         SPD1 = Mold motor
         SPD2 = Camera motor
         """
         if self.connection:
+            # Bepaal het commando op basis van de motor
             if motor == "Mold":
                 self.speed1 = speed
-                self.send_command(f"SPD1:{speed}")
+                command = f"SPD1:{speed}"
             elif motor == "Camera":
                 self.speed2 = speed
-                self.send_command(f"SPD2:{speed}")
+                command = f"SPD2:{speed}"
             else:
                 print("Ongeldige motor")
+                return False  # Stop als de motor ongeldig is
+
+            # Verstuur het commando
+            self.send_command(command)
+            print(f"Command sent: {command}")
+
+            # Wacht op de juiste feedback
+            while True:
+                if self.connection and self.connection.in_waiting > 0:
+                    try:
+                        # Lees feedback van de Arduino
+                        feedback = self.connection.readline().decode().strip()
+                        print(f"Feedback received: {feedback}")
+
+                        # Controleer of de feedback overeenkomt met de verwachte bevestiging
+                        if motor == "Mold" and feedback == f"Mold motor speed set to {speed}":
+                            print("Bevestiging ontvangen: Mold motor snelheid aangepast!")
+                            return True
+                        elif motor == "Camera" and feedback == f"Camera motor speed set to {speed}":
+                            print("Bevestiging ontvangen: Camera motor snelheid aangepast!")
+                            return True
+                    except Exception as e:
+                        print(f"Error reading feedback: {e}")
+
+                # Voeg een korte pauze toe om CPU-gebruik te minimaliseren
+                await asyncio.sleep(0.1)
+
+        else:
+            print("Geen actieve verbinding met Arduino")
+            return False
 
     async def Relay(self, state: str):
         """
@@ -198,7 +256,7 @@ class ArduinoConnection:
                     feedback = self.connection.readline().decode().strip()
                     print(f"Feedback received: {feedback}")
                     # Check if the steppers have reached their location
-                    if feedback == "Stepper limit switch":
+                    if feedback == "Steppers reached location":
                         print("Confirmation received: Steppers have reached their destination!")
                         return True
                 except Exception as e:
