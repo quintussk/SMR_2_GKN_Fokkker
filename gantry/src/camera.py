@@ -184,7 +184,7 @@ class Camera:
 
     def process_image(self, mold_name: str, filename: str, frame):
         """
-        Verwerkt de afbeelding met YOLO-inferentie en sticht vervolgens de afbeelding.
+        Verwerkt de afbeelding met YOLO-inferentie en slaat de verwerkte afbeelding op in de YOLO-map.
         """
         try:
             print(f"Processing image: {filename} in mold {mold_name}...")
@@ -192,7 +192,7 @@ class Camera:
             # Voer YOLO-inferentie uit
             results = self.yolo_model(frame)
 
-            # After YOLO detection:
+            # Update JSON met YOLO-resultaten
             self.update_json(mold_name, self.extract_coordinates(filename), results)
 
             for result in results:
@@ -207,7 +207,7 @@ class Camera:
             coords = self.extract_coordinates(filename)
             self.stitch_images(frame, coordinates=coords)
 
-            # Verplaats het verwerkte beeld naar de permanente map
+            # Verplaats het originele beeld naar de permanente map
             path_temp = Path(__file__).parent / "Pictures" / mold_name / "temporary"
             path_permanent = Path(__file__).parent / "Pictures" / mold_name / "permanent"
             path_YOLO = Path(__file__).parent / "Pictures" / mold_name / "YOLO"
@@ -216,13 +216,19 @@ class Camera:
 
             temp_filepath = path_temp / filename
             permanent_filepath = path_permanent / filename
+            yolo_filepath = path_YOLO / filename
 
             if not temp_filepath.exists():
                 print(f"Temp file does not exist: {temp_filepath}")
                 return
 
+            # Verplaats naar de permanente map
             temp_filepath.rename(permanent_filepath)
             print(f"Image moved to permanent location: {permanent_filepath}")
+
+            # Sla de verwerkte YOLO-afbeelding op in de YOLO-map
+            cv2.imwrite(str(yolo_filepath), frame)
+            print(f"YOLO-processed image saved to: {yolo_filepath}")
 
         except Exception as e:
             print(f"Error processing image {filename}: {e}")

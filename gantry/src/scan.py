@@ -205,13 +205,18 @@ class Scanning:
         # Update current Y position
         self.current_Y += int(round(steps / self.Steps_per_cm))
         print(f"Camera has reached the location at Y: {self.current_Y} cm")
-
+        
+    async def steps(self):
+        print(self.Steps_per_cm_camera * 57)
+        print(self.Steps_per_cm_wheel * 46)
 
 if __name__ == "__main__":
     # Create a Scanning instance
-    # arduino = ArduinoConnection(port="/dev/cu.usbmodem11301")
+    # arduino = ArduinoConnection(port="//dev/ttyACM0")
     # camera = Camera()
     scan = Scanning()
     # Start scanning with given X_Total and Y_Total dimensions
-    asyncio.run(scan.Calculate_Movement(60,215,"Negative"))
+    # asyncio.run(scan.Calculate_Movement(60,215,"Negative"))
+    asyncio.run(scan.steps())
+
 

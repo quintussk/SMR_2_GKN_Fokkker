@@ -266,8 +266,10 @@ def move_steps():
         horizontal_steps = data.get('horizontal_steps')
         vertical_steps = data.get('vertical_steps')
         if horizontal_steps is not None and vertical_steps is not None:
-            # Send the steps to Arduino
-            arduino.send_steps(horizontal_steps, vertical_steps)
+            # Use asyncio to run the async function
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            loop.run_until_complete(arduino.send_steps(horizontal_steps, vertical_steps))
             return jsonify({"status": "success", "message": f"Moved {horizontal_steps} horizontal steps and {vertical_steps} vertical steps"})
         else:
             return jsonify({"status": "error", "message": "Steps not provided"}), 400
