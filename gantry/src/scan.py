@@ -216,7 +216,7 @@ if __name__ == "__main__":
     # camera = Camera()
     scan = Scanning()
     # Start scanning with given X_Total and Y_Total dimensions
-    # asyncio.run(scan.Calculate_Movement(60,215,"Negative"))
-    asyncio.run(scan.steps())
+    asyncio.run(scan.Calculate_Movement(60,215,"Negative"))
+    # asyncio.run(scan.steps())
 
 
