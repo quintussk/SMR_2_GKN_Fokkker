@@ -2,16 +2,17 @@ import asyncio
 from arduino import ArduinoConnection
 from camera import Camera
 from rich import print as print
+from test_scanning import Camera
 
 class Scanning:
-    def __init__(self, arduinoClass: ArduinoConnection, camera: Camera):
+    def __init__(self, arduinoClass: ArduinoConnection, Camera: Camera):
     # def __init__(self):
 
         # Define the movement in centimeters for X and Y directions
-        self.X_Movement = 30  # How many cm to move for the X position (Gantry)
-        self.Y_Movement = 28  # How many cm to move for the Y position (Camera)
+        self.X_Movement = 43 # How many cm to move for the X position (Gantry)
+        self.Y_Movement = 140  # How many cm to move for the Y position (Camera)
         
-        self.Max_Camera_Movement = 149  # Maximum movement for the camera in cm
+        self.Max_Camera_Movement = 140  # Maximum movement for the camera in cm
 
         # Define the hardware-specific stepper motor details
         self.Stepper_Rev_Ratio = 400  # Steps per full revolution of the motor
@@ -28,8 +29,7 @@ class Scanning:
         # Started Arduino class
         self.arduinoClass = arduinoClass
 
-        # Started Camera class
-        self.camera = camera
+        self.scanner_camera = Camera
 
         # Initialize current positions
         self.current_X = 0  # Current X position in cm
@@ -89,7 +89,7 @@ class Scanning:
         await self.arduinoClass.Relay("ON")
         await self.check_if_camera_is_home()
         await self.arduinoClass.change_speed_motor(motor="Mold", speed=500)
-        await self.arduinoClass.change_speed_motor(motor="Camera", speed=1000)
+        await self.arduinoClass.change_speed_motor(motor="Camera", speed=300)
 
         try:
             X_Total = int(X_Total)
@@ -109,17 +109,13 @@ class Scanning:
                 break
 
             if step["axis"] == "Y":
-                await self.Move_Camera(step["steps"])
+                await self.Move_Camera(step["steps"], mold = mold, filename=f"{mold}_image_X{self.current_X}.jpg",Y_total=Y_Total)
             elif step["axis"] == "X":
                 await self.Move_Gantry(step["steps"])
 
             self.completed_steps += 1
             progress = (self.completed_steps / self.total_steps) * 100
             print(f"Scan progress: {progress:.2f}%")
-
-            # Neem een foto op de huidige locatie
-            await self.camera.take_picture(mold_name=mold, filename=f"{mold}_image_X{self.current_X}_Y{self.current_Y}.jpg")
-            print(f"Photo taken at X: {self.current_X} cm, Y: {self.current_Y} cm")
         
         self.scan_active = False
         print("Scan completed or stopped.")
@@ -196,15 +192,43 @@ class Scanning:
         self.current_X += int(round(steps / self.Steps_per_cm))
         print(f"Gantry has reached the location at X: {self.current_X} cm")
 
-    async def Move_Camera(self, steps: int):
+    async def Move_Camera(self, steps: int, mold, filename, Y_total):
         """
         Movement of the camera along the Y-axis in steps.
         """
-        await self.arduinoClass.send_steps(0,steps)  # Send steps to Arduino
-        await self.arduinoClass.Wait_For_Location_Reached()
+        self.scanner_camera.Stop_Scanning = False
+        await self.arduinoClass.send_steps(0, steps)
+
+        # Start the scan in a separate task
+        scan_task = asyncio.create_task(
+            asyncio.to_thread(
+                self.scanner_camera.scan_start,
+                steps,
+                mold,
+                filename,
+                Y_total
+            )
+        )
+
+        # Wacht eerst tot de camera beweging klaar is
+        while not await self.arduinoClass.Wait_For_Location_Reached():
+            await asyncio.sleep(0.1)
+
+        # Geef extra tijd voor het scannen (ongeveer 1 seconde)
+        await asyncio.sleep(1)
+        
+        # Stop de scan en wacht tot deze volledig is afgerond
+        self.scanner_camera.stop_scan()
+        try:
+            await scan_task
+        except Exception as e:
+            print(f"Error tijdens scannen: {e}")
+
         # Update current Y position
-        self.current_Y += int(round(steps / self.Steps_per_cm))
-        print(f"Camera has reached the location at Y: {self.current_Y} cm")
+        self.current_Y += int(round(steps / self.Steps_per_cm_camera))
+        print(f"Camera heeft positie bereikt op Y: {self.current_Y} cm")
+
+        # Stop taking a scan
         
     async def steps(self):
         print(self.Steps_per_cm_camera * 57)

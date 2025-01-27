@@ -113,8 +113,6 @@ class ArduinoConnection:
         print("Waiting for confirmation that the steppers are moving...")
         await asyncio.sleep(0.5)  # Kort wachten voordat het luisteren begint
 
-        moving_received = False
-
         while True:
             if self.connection and self.connection.in_waiting > 0:
                 try:

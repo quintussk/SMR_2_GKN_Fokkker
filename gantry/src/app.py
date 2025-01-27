@@ -1,7 +1,6 @@
 from flask import Flask, Response, render_template, request, jsonify, send_from_directory
 import cv2
 import os
-from camera import Camera
 from capture import ImageCaptureAndStitch
 from arduino import ArduinoConnection
 from datetime import datetime
@@ -11,23 +10,27 @@ import asyncio
 from pathlib import Path
 import json
 from rich import print as print
+from test_scanning import Camera
 
 app = Flask(__name__)
 
 # Initialize the camera (0 is the default camera index)
 # image_capture_and_stitch = ImageCaptureAndStitch()
 
-camera_feed = Camera() 
+# camera_feed = Camera() 
+
+scanner = Camera()
+
 arduino = ArduinoConnection(port="//dev/ttyACM0")
-Gantry_Scan = Scanning(arduinoClass=arduino, camera=camera_feed)
+Gantry_Scan = Scanning(arduinoClass=arduino, Camera=scanner)
 
 # Directory to save captured images
 image_dir = 'c:/Users/ihsan/Documents/SMR_2_GKN_Fokkker/images'
 os.makedirs(image_dir, exist_ok=True)
 
 @app.route('/video_feed')
-def video_feed_rgb():
-    return Response(camera_feed.generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+# def video_feed_rgb():
+#     return Response(camera_feed.generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
 @app.route('/')
 def index():
@@ -44,19 +47,19 @@ def index():
     return render_template('index.html', image_url=image_url)
 
 @app.route('/move', methods=['POST'])
-# def move():
-#     try:
-#         direction = data.get('direction')
-#         data = request.get_json()
-#         if direction:
-#             # Send the command to Arduino
-#             print(direction)
-#             arduino.move_manual(direction)
-#             return jsonify({"status": "success", "message": f"Moved {direction}"})
-#         else:
-#             return jsonify({"status": "error", "message": "No direction provided"}), 400
-#     except Exception as e:
-#         return jsonify({"status": "error", "message": str(e)}), 500
+def move():
+    try:
+        direction = data.get('direction')
+        data = request.get_json()
+        if direction:
+            # Send the command to Arduino
+            print(direction)
+            # arduino.move_manual(direction)
+            return jsonify({"status": "success", "message": f"Moved {direction}"})
+        else:
+            return jsonify({"status": "error", "message": "No direction provided"}), 400
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
  
 @app.route('/capture_image', methods=['POST'])
 # def capture_image():

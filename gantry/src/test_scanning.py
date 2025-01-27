@@ -3,30 +3,41 @@ import numpy as np
 import time
 from pathlib import Path
 from arduino import ArduinoConnection
-from ultralytics import YOLO  # Import YOLO
+from ultralytics import YOLO
 import asyncio
+import threading
+from queue import Queue
+import json
 
-class Scanner:
-    def __init__(self, arduino):
+class Camera:
+    def __init__(self):
         # Camera-instellingen
-        self.camera_index = 4  # Camera-index, pas aan naar jouw camera
-        self.frame_width = 1920  # Breedte van de frame
-        self.frame_height = 1080  # Hoogte van de frame
+        self.camera_index = 4
+        self.frame_width = 1920
+        self.frame_height = 1080
 
         # Scanning-instellingen
-        self.scan_speed = 0.85  # Bewegingstijd tussen frames (in seconden)
-        self.overlap = 60  # Pixels overlap tussen frames (verlaagd voor minder overlap)
-        self.crop_percentage = 0.3  # Percentage van beeldbreedte dat wordt gebruikt
+        self.scan_speed = 0.85
+        self.overlap = 60
+        self.crop_percentage = 0.3
 
         path_model = Path(__file__).parent / "best.pt"
-        self.yolo_model = YOLO(path_model)  # Pas "best.pt" aan naar jouw YOLO-modelbestand
+        self.yolo_model = YOLO(path_model)
 
-        # Uitvoerinstellingen
-        self.output_filename = "Test_Scan.jpg"  # Naam van het gestitchte scanbestand
-        self.save_directory = Path(__file__).parent / "Scans"  # Opslaglocatie
+        self.main_stitced_image = None
+        self.stitched_filepath = Path(__file__).parent / "Pictures" / "stitched_image.jpg"
 
-        # Arduino-verbinding
-        self.arduinoClass = arduino
+        self.Stop_Scanning = False
+        self.processing = False
+
+        self.length_scan = 0
+        
+        # Queue voor beeldverwerking
+        self.process_queue = Queue()
+        
+        # Start processing thread
+        self.processing_thread = threading.Thread(target=self._process_thread, daemon=True)
+        self.processing_thread.start()
 
         # Camera-initialisatie
         self.camera = cv2.VideoCapture(self.camera_index)
@@ -35,168 +46,284 @@ class Scanner:
 
         self.camera.set(cv2.CAP_PROP_FRAME_WIDTH, self.frame_width)
         self.camera.set(cv2.CAP_PROP_FRAME_HEIGHT, self.frame_height)
-        # self.camera.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)  # Zet automatische belichting uit
-        # self.camera.set(cv2.CAP_PROP_EXPOSURE, -8)  # Lagere belichting
-        # self.camera.set(cv2.CAP_PROP_BRIGHTNESS, 100)  # Lagere helderheid
-        # self.camera.set(cv2.CAP_PROP_CONTRAST, 70)  # Verhoog contrast
-        # self.camera.set(cv2.CAP_PROP_WHITE_BALANCE_BLUE_U, 4000)  # Stel witbalans in (indien ondersteund)
 
         # Camera warming-up
         print("Camera warming-up...")
-        for _ in range(20):  # Laat de camera frames stabiliseren (verhoogd voor meer consistentie)
+        for _ in range(20):
             self.camera.read()
         print("Camera klaar voor gebruik.")
 
+    def _process_thread(self):
+        """
+        Aparte thread voor beeldverwerking.
+        """
+        while True:
+            if not self.processing:
+                time.sleep(0.1)
+                continue
+
+            try:
+                # Haal data uit de queue
+                data = self.process_queue.get()
+                if data is None:
+                    continue
+
+                stitched_image, mold, filename = data
+                
+                if stitched_image is not None:
+                    # Verwerk het beeld met YOLO
+                    processed_image = self.proces_image(stitched_image)
+
+                    # Voeg toe aan hoofdafbeelding
+                    self.add_processed_image_to_main_stitch(processed_image)
+                    
+                    # Sla de individuele scan op
+                    path_temp = Path(__file__).parent / "Pictures" / mold / "scans"
+                    path_clear = Path(__file__).parent / "Pictures" / mold / "without_YOLO"
+                    path_temp.mkdir(parents=True, exist_ok=True)
+                    path_clear.mkdir(parents=True, exist_ok=True)
+                    clear_filepath = path_clear / filename
+                    temp_filepath = path_temp / filename
+                    cv2.imwrite(str(clear_filepath), stitched_image)
+                    cv2.imwrite(str(temp_filepath), processed_image)
+                    print(f"Scan voltooid! Opgeslagen als {temp_filepath}")
+
+            except Exception as e:
+                print(f"Error in processing thread: {e}")
+
     def crop_frame(self, frame):
-        """
-        Cropt een frame zodat alleen een smaller deel wordt gebruikt.
-        """
         height, width, _ = frame.shape
-
-        # Crop-start en -eind aanpassen voor een smaller deel
-        left_crop_percentage = 0.4  # Begin crop (40% van links)
-        right_crop_percentage = 0.4  # Eind crop (40% van rechts)
-
-        crop_start = int(width * left_crop_percentage)  # Startpunt croppen
-        crop_end = int(width * (1 - right_crop_percentage))  # Eindpunt croppen
-
+        left_crop_percentage = 0.4
+        right_crop_percentage = 0.4
+        crop_start = int(width * left_crop_percentage)
+        crop_end = int(width * (1 - right_crop_percentage))
         return frame[:, crop_start:crop_end]
 
-    def sharpen_image(self, image):
-        """
-        Verhoogt de scherpte van een afbeelding met behulp van een krachtigere sharpening-kernel.
-        """
-        kernel = np.array([[1, -2, 1],
-                           [-2, 5, -2],
-                           [1, -2, 1]])
-        sharpened = cv2.filter2D(image, -1, kernel)
-        return sharpened
-
-    def auto_adjust_contrast(self, image):
-        """
-        Past contrast adaptief aan met CLAHE (Contrast Limited Adaptive Histogram Equalization).
-        """
-        lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
-        l, a, b = cv2.split(lab)
-        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-        l = clahe.apply(l)
-        lab = cv2.merge((l, a, b))
-        return cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
-
-    def stitch_frames(self, stitched_image, new_frame):
-        """
-        Voegt een nieuw frame toe aan een gestitchte afbeelding.
-        """
+    def stitch_frames(self, stitched_image, new_frame, direction="left_to_right"):
         if stitched_image is None:
             return new_frame
         else:
-            combined_frame = np.hstack((stitched_image[:, :-self.overlap], new_frame))  # Voeg frames samen
+            if direction == "left_to_right":
+                combined_frame = np.hstack((stitched_image[:, :-self.overlap], new_frame))
+            else:
+                combined_frame = np.hstack((new_frame, stitched_image[:, self.overlap:]))
             return combined_frame
-        
-    def adjust_brightness(self, image, alpha=1.5, beta=50):
-        """
-        Pas helderheid en contrast van een afbeelding aan.
-        """
-        return cv2.convertScaleAbs(image, alpha=alpha, beta=beta)
 
-    def scan_start(self, duration=10):
+    def scan_start(self, steps, mold, filename, Y_total):
         """
         Start een scan en slaat het resultaat op.
-        Args:
-            duration (int): Duur van de scan in seconden.
         """
-        print("Scan gestart...")
-        start_time = time.time()
+        print(f"Scan gestart voor {mold}...")
+        
+        direction = "left_to_right" if steps > 0 else "right_to_left"
+        print(f"Scanrichting: {direction}")
+
+        self.length_scan = Y_total
+
         stitched_image = None
         previous_frame = None
+        self.Stop_Scanning = False
+        self.processing = True
+        frames_captured = 0
 
-        while time.time() - start_time < duration:
-            # Grijp meerdere keren het frame om buffer te legen
-            for _ in range(5):  # Pas het aantal aan als nodig
+        while not self.Stop_Scanning:
+            for _ in range(5):
                 self.camera.grab()
 
-            # Lees het nieuwste frame
             ret, frame = self.camera.read()
             if not ret:
                 print("Kon geen frame ophalen. Controleer de camera.")
                 break
 
-            # Controleer of het frame verschilt van het vorige frame
             if previous_frame is not None:
                 diff = cv2.absdiff(previous_frame, frame)
-                if np.sum(diff) < 5000:  # Pas de drempelwaarde aan
+                if np.sum(diff) < 5000:
                     print("Frame lijkt op het vorige frame. Overslaan...")
                     continue
 
-            # Update previous_frame
             previous_frame = frame.copy()
+            frames_captured += 1
 
-            # Verhoog contrast en scherpte
-            # frame = self.auto_adjust_contrast(frame)
-            # frame = self.sharpen_image(frame)
-
-            # Crop het frame
             cropped_frame = self.crop_frame(frame)
-
-            # Stitch het frame aan de bestaande afbeelding
-            stitched_image = self.stitch_frames(stitched_image, cropped_frame)
-
-            # Wacht een beetje voor de volgende beweging
+            stitched_image = self.stitch_frames(stitched_image, cropped_frame, direction)
             time.sleep(self.scan_speed)
 
-        # results = self.yolo_model(stitched_image)
-
-        # for result in results:
-        #         boxes = result.boxes  # Haal de bounding boxes op
-        #         for box in boxes:
-        #             # Verkrijg de coördinaten van de bounding box
-        #             x1, y1, x2, y2 = map(int, box.xyxy[0])  # Converteer naar integers
-        #             # Teken alleen de bounding box op het frame
-        #             cv2.rectangle(stitched_image, (x1, y1), (x2, y2), (0, 255, 0), 2)  # Groen met dikte 2
-        
-        # Sla het gestitchte beeld op
+        # Plaats het laatste stitched image in de queue voor verwerking
         if stitched_image is not None:
-            self.save_directory.mkdir(parents=True, exist_ok=True)
-            output_path = self.save_directory / self.output_filename
-            cv2.imwrite(str(output_path), stitched_image)
-            print(f"Scan voltooid! Opgeslagen als {output_path}")
+            self.process_queue.put((stitched_image, mold, filename))
+        
+        # Wacht tot de verwerking klaar is
+        while not self.process_queue.empty():
+            time.sleep(0.1)
+        
+        self.processing = False
+
+    def update_json(self, scan_image, detections):
+        """
+        Update the JSON file with real-world coordinates of detected objects in centimeters.
+
+        Args:
+            scan_image (PIL.Image or ndarray): The scanned image containing detected objects.
+            detections: YOLO detections containing bounding box information.
+        """
+        epoxy_dir = Path(__file__).parent / "Epoxy"
+        json_file_path = epoxy_dir / "epoxy.json"
+
+        try:
+            # Zorg dat de map bestaat
+            epoxy_dir.mkdir(parents=True, exist_ok=True)
+
+            # Haal afmetingen van de afbeelding op
+            if isinstance(scan_image, np.ndarray):
+                frame_height, frame_width, _ = scan_image.shape
+            else:
+                frame_width, frame_height = scan_image.size
+
+            print(f"Afbeeldingsgrootte: Breedte={frame_width}, Hoogte={frame_height}")
+
+            # Laad bestaande JSON of maak een nieuwe
+            if json_file_path.exists():
+                with open(json_file_path, "r") as file:
+                    data = json.load(file)
+            else:
+                data = {"epoxy_points": []}
+
+            # Bereken verhouding (lengte scan in cm / breedte afbeelding in pixels)
+            ratio = self.length_scan / frame_width
+            print(f"Pixel-naar-cm-verhouding: {ratio}")
+
+            # Voeg YOLO-detecties toe aan JSON
+            for result in detections:
+                boxes = result.boxes
+                for i, box in enumerate(boxes):
+                    x1, y1, x2, y2 = box.xyxy[0].tolist()
+
+                    # Bereken het midden van de bounding box
+                    center_x = (x1 + x2) / 2
+                    center_y = (y1 + y2) / 2
+
+                    print(f"Detectie centrum (pixels): ({center_x}, {center_y})")
+
+                    # Converteer naar real-world coördinaten (in centimeters)
+                    real_x = center_x * ratio  # X-coördinaat in cm
+                    real_y = center_y * ratio  # Y-coördinaat in cm
+
+                    print(f"Omgezet naar real-world coördinaten (cm): ({real_x}, {real_y})")
+
+                    # Voeg punt toe aan data
+                    point = {
+                        "id": len(data["epoxy_points"]) + 1,
+                        "x": float(real_x),
+                        "y": float(real_y),
+                        "removed": False
+                    }
+                    data["epoxy_points"].append(point)
+
+            # Sla de geüpdatete JSON op
+            with open(json_file_path, "w") as file:
+                json.dump(data, file, indent=4)
+
+            print(f"Geüpdatete epoxy-punten opgeslagen in: {json_file_path}")
+
+        except Exception as e:
+            print(f"Fout bij het updaten van JSON: {e}")
+
+    def add_processed_image_to_main_stitch(self, processed_image):
+        """
+        Voegt een nieuwe processed_image toe aan de hoofdafbeelding door deze er bovenop te plaatsen.
+        De resulterende afbeelding wordt opgeslagen als stitched_image.jpg
+        """
+        if self.main_stitced_image is None:
+            self.main_stitced_image = processed_image
         else:
-            print("Geen afbeelding om op te slaan.")
+            # Zorg ervoor dat beide afbeeldingen dezelfde breedte hebben
+            if self.main_stitced_image.shape[1] != processed_image.shape[1]:
+                # Resize processed_image om dezelfde breedte te krijgen
+                scale_factor = self.main_stitced_image.shape[1] / processed_image.shape[1]
+                new_height = int(processed_image.shape[0] * scale_factor)
+                processed_image = cv2.resize(processed_image, (self.main_stitced_image.shape[1], new_height))
+
+            # Voeg de nieuwe afbeelding verticaal toe (bovenop de bestaande)
+            self.main_stitced_image = np.vstack((processed_image, self.main_stitced_image))
+
+        # Sla de bijgewerkte hoofdafbeelding op
+        stitched_filepath = Path(__file__).parent / "Pictures" / "stitched_image.jpg"
+        stitched_filepath.parent.mkdir(parents=True, exist_ok=True)
+        cv2.imwrite(str(stitched_filepath), self.main_stitced_image)
+        print(f"Updated main stitched image saved at {stitched_filepath}")
+
+    def proces_image(self, image):
+        results = self.yolo_model(image)
+        for result in results:
+                boxes = result.boxes  # Haal de bounding boxes op
+                for box in boxes:
+                    # Verkrijg de coördinaten van de bounding box
+                    x1, y1, x2, y2 = map(int, box.xyxy[0])  # Converteer naar integers
+                    # Teken alleen de bounding box op het frame
+                    cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 2)  # Groen met dikte 2
+
+        self.update_json(image,results)
+        return image
 
     def release(self):
-        """
-        Sluit de camera en vrijgegeven resources.
-        """
+        self.Stop_Scanning = True
+        self.processing = False
         self.camera.release()
         print("Camera vrijgegeven.")
 
-    async def check_if_camera_is_home(self):
+    def stop_scan(self):
+        print("Stopping scan")
+        self.Stop_Scanning = True
+        
+async def scan_and_wait(scanner: Camera,arduino:ArduinoConnection, steps, mold, filename):
         """
-        Checks if the camera is at the home position.
+        Start een scan en wacht op Arduino's terugkoppeling.
         """
-        position_reached = await self.arduinoClass.check_camera()
-        if not position_reached:
-            await self.arduinoClass.change_speed_motor("Camera", 100)
-            await self.arduinoClass.home_camera()
-        print("Camera is homed")
-
+        # Start de scan in een aparte task
+        scan_task = asyncio.create_task(
+            asyncio.to_thread(
+                scanner.scan_start,
+                steps,
+                mold,
+                filename
+            )
+        )
+        
+        # Wacht op Arduino's terugkoppeling
+        while not await arduino.Wait_For_Location_Reached():
+            await asyncio.sleep(0.1)
+        
+        # Stop de scan
+        scanner.stop_scan()
+        
+        # Wacht tot de scan volledig is afgerond
+        await scan_task
 
 async def main():
     arduino = ArduinoConnection(port="//dev/ttyACM0")
-    scanner = Scanner(arduino)
+    scanner = Camera()
 
-    steps = -3000
+    steps = 3725
 
     await arduino.Relay("ON")
-    await scanner.check_if_camera_is_home()
+    # await scanner.check_if_camera_is_home()
     await arduino.change_speed_motor(motor="Mold", speed=500)
-    await arduino.change_speed_motor(motor="Camera", speed=300)  # Verhoogde snelheid
+    await arduino.change_speed_motor(motor="Camera", speed=300)
 
-    await arduino.send_steps(0, steps)  # Send steps to Arduino
+    await arduino.send_steps(0, steps)
+    
     try:
-        scanner.scan_start(duration=10)  # Scan 5 seconden
+        await scan_and_wait(
+            scanner=scanner,
+            arduino=arduino,
+            steps=steps,
+            mold="Testing",
+            filename="scan4.jpg"
+        )
     finally:
         scanner.release()
+        await arduino.Relay("OFF")
+    await arduino.Relay("OFF")
 
 
 if __name__ == "__main__":

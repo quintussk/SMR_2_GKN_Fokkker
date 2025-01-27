@@ -25,6 +25,14 @@ class Camera:
         self.last_X = 0
         self.last_Y = 0
 
+        self.frame_width = 1920  # Breedte van de frame
+        self.frame_height = 1080  # Hoogte van de frame
+
+        # Scanning-instellingen
+        self.scan_speed = 0.85  # Bewegingstijd tussen frames (in seconden)
+        self.overlap = 60  # Pixels overlap tussen frames (verlaagd voor minder overlap)
+        self.crop_percentage = 0.3  # Percentage van beeldbreedte dat wordt gebruikt
+
         path_model = Path(__file__).parent / "best.pt"
         self.yolo_model = YOLO(path_model)  # Pas "best.pt" aan naar jouw YOLO-modelbestand
 
@@ -103,7 +111,7 @@ class Camera:
             else:
                 time.sleep(0.1)  # Voorkomt continu loopen als er niets te verwerken is
 
-    def update_json(self, mold_name: str, coords, detections):
+    def update_json(self, coords, detections):
         """
         Update the JSON file with real-world coordinates of detected objects in centimeters.
 
