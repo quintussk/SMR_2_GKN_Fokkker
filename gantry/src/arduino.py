@@ -15,7 +15,6 @@ class ArduinoConnection:
             self.speed2 = 0
             # self.request_values()
             self.camera_homed = False
-            self.Relay("ON")
             
         except serial.SerialException as e:
             print(f"Cannot connect to Arduino: {e}")

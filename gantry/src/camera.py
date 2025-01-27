@@ -347,6 +347,17 @@ class Camera:
     def generate_frames(self):
         while True:
             success, frame = self.camera.read()
+
+            results = self.yolo_model(frame)
+
+            for result in results:
+                boxes = result.boxes  # Haal de bounding boxes op
+                for box in boxes:
+                    # Verkrijg de coördinaten van de bounding box
+                    x1, y1, x2, y2 = map(int, box.xyxy[0])  # Converteer naar integers
+                    # Teken alleen de bounding box op het frame
+                    cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)  # Groen met dikte 2
+
             if not success:
                 break
             else:

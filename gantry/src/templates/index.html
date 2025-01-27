@@ -491,9 +491,8 @@
     <div class="tabs">
         <button class="tab-button" onclick="openTab(event, 'home')">Home</button>
         <button class="tab-button" onclick="openTab(event, 'stitch')">stitched</button>
-        <button class="tab-button" onclick="openTab(event, 'tab2')">Camera feed RGB</button>
+        <button class="tab-button" onclick="openTab(event, 'tab2')">Camera Feed</button>
         <button class="tab-button" onclick="openTab(event, 'move')">Move</button>
-        <button class="tab-button" onclick="openTab(event, 'capture')">Capture</button>
     </div>
 
     
@@ -614,24 +613,6 @@
             </form>
         </div>
     </div>
-
-    <!-- Capture Tab -->
-    <div id="capture" class="tab-content">
-        <div class="capture-container">
-            <button class="buttonMove" onclick="startCapture()">Start Capture</button>
-            <button class="buttonMove" onclick="stopCapture()">Stop Capture</button>
-            <button class="buttonMove" onclick="captureImage()">Capture Image</button>
-            <div id="stitched-images-container" style="margin-top: 20px;">
-                <h3>Stitched Images</h3>
-                <ul id="stitched-images-list" class="image-list"></ul>
-                <div id="stitched-image-display" style="margin-top: 20px;">
-                    <img id="stitched-image" src="" alt="Stitched Image" style="max-width: 100%; display: none;">
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div id="tab4" class="tab-content">Content for Tab 4</div>
 
     <script>
         function openTab(evt, tabName) {
@@ -800,20 +781,10 @@
 
                         // Add checkbox event listeners
                         document.querySelectorAll('.epoxy-checkbox').forEach(checkbox => {
-                            checkbox.addEventListener('change', function() {
-                                if (this.checked) {
-                                    const pointId = parseInt(this.getAttribute('data-id'));
-                                    // Find and animate the number before removing
-                                    const text = document.querySelector(`text[data-id="${pointId}"]`);
-                                    if (text) {
-                                        text.style.animation = 'explode 0.5s forwards';
-                                        setTimeout(() => {
-                                            text.remove();
-                                        }, 500);
-                                    }
-                                }
+                            checkbox.addEventListener('change', function () {
+                                const pointId = parseInt(this.getAttribute('data-id'));
+                                const removedStatus = this.checked;
 
-                                
                                 fetch('/update_epoxy_point', {
                                     method: 'POST',
                                     headers: {
@@ -821,15 +792,18 @@
                                     },
                                     body: JSON.stringify({
                                         id: pointId,
-                                        removed: this.checked
+                                        removed: removedStatus
                                     })
                                 })
                                 .then(response => response.json())
                                 .then(data => {
                                     if (data.status === "success") {
-                                        updateEpoxyTable(); // Refresh the visualization
+                                        console.log(`Punt ${pointId} is bijgewerkt: removed=${removedStatus}`);
+                                    } else {
+                                        console.error(`Error: ${data.message}`);
                                     }
-                                });
+                                })
+                                .catch(error => console.error("Fout bij het bijwerken:", error));
                             });
                         });
                     }

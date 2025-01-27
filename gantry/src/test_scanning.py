@@ -53,6 +53,12 @@ class Camera:
             self.camera.read()
         print("Camera klaar voor gebruik.")
 
+        self.epoxy_found = False
+
+    def reset(self):
+        self.main_stitced_image = None
+        self.epoxy_found = False
+
     def _process_thread(self):
         """
         Aparte thread voor beeldverwerking.
@@ -99,6 +105,21 @@ class Camera:
         crop_end = int(width * (1 - right_crop_percentage))
         return frame[:, crop_start:crop_end]
 
+    def generate_frames(self):
+        while True:
+            success, frame = self.camera.read()
+            if not success:
+                break
+            else:
+                ret, buffer = cv2.imencode('.jpg', frame)
+                if not ret:
+                    print("Frame encoding failed")
+                    break
+                frame = buffer.tobytes()
+
+                yield (b'--frame\r\n'
+                       b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+
     def stitch_frames(self, stitched_image, new_frame, direction="left_to_right"):
         if stitched_image is None:
             return new_frame
@@ -144,9 +165,13 @@ class Camera:
             previous_frame = frame.copy()
             frames_captured += 1
 
+            # frame = self.dynamic_brightness_contrast(frame)
+
             cropped_frame = self.crop_frame(frame)
             stitched_image = self.stitch_frames(stitched_image, cropped_frame, direction)
             time.sleep(self.scan_speed)
+
+        stitched_image = self.normalize_stitched_image(stitched_image)
 
         # Plaats het laatste stitched image in de queue voor verwerking
         if stitched_image is not None:
@@ -157,6 +182,54 @@ class Camera:
             time.sleep(0.1)
         
         self.processing = False
+
+    def dynamic_brightness_contrast(self, image):
+        """
+        Past dynamisch helderheid en contrast aan over de afbeelding om uniformiteit te bereiken.
+        Args:
+            image (np.ndarray): De invoerafbeelding.
+        Returns:
+            np.ndarray: De aangepast afbeelding.
+        """
+        # Converteer afbeelding naar LAB-kleurruimte
+        lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
+        l_channel, a_channel, b_channel = cv2.split(lab)
+
+        # Pas CLAHE toe op het lichtheidskanaal
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+        l_channel = clahe.apply(l_channel)
+
+        # Combineer de kanalen opnieuw
+        lab = cv2.merge((l_channel, a_channel, b_channel))
+        adjusted_image = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
+
+        return adjusted_image
+    
+    def normalize_stitched_image(self, stitched_image):
+        """
+        Normaliseert de belichting van een volledig gestitchte afbeelding.
+        Args:
+            stitched_image (np.ndarray): De gestitchte afbeelding.
+        Returns:
+            np.ndarray: De genormaliseerde afbeelding.
+        """
+        # Converteer naar LAB en pas CLAHE toe op het lichtheidskanaal
+        lab = cv2.cvtColor(stitched_image, cv2.COLOR_BGR2LAB)
+        l_channel, a_channel, b_channel = cv2.split(lab)
+
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+        l_channel = clahe.apply(l_channel)
+
+        lab = cv2.merge((l_channel, a_channel, b_channel))
+        normalized_image = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
+
+        return normalized_image
+
+    def adjust_brightness(self, image, alpha=1.5, beta=50):
+        """
+        Pas helderheid en contrast van een afbeelding aan.
+        """
+        return cv2.convertScaleAbs(image, alpha=alpha, beta=beta)
 
     def update_json(self, scan_image, detections):
         """
@@ -255,6 +328,7 @@ class Camera:
     def proces_image(self, image):
         results = self.yolo_model(image)
         for result in results:
+                self.epoxy_found = True
                 boxes = result.boxes  # Haal de bounding boxes op
                 for box in boxes:
                     # Verkrijg de coördinaten van de bounding box
@@ -285,7 +359,7 @@ async def scan_and_wait(scanner: Camera,arduino:ArduinoConnection, steps, mold, 
                 scanner.scan_start,
                 steps,
                 mold,
-                filename
+                filename, 200 
             )
         )
         
@@ -303,7 +377,7 @@ async def main():
     arduino = ArduinoConnection(port="//dev/ttyACM0")
     scanner = Camera()
 
-    steps = 3725
+    steps = -3725
 
     await arduino.Relay("ON")
     # await scanner.check_if_camera_is_home()

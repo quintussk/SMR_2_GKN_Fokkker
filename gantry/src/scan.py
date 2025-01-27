@@ -59,6 +59,8 @@ class Scanning:
 
         progress = (self.completed_steps / self.total_steps) * 100 if self.total_steps > 0 else 0
 
+        self.epoxy_found = self.scanner_camera.epoxy_found
+
         status = {
             "current_X": self.current_X,
             "current_Y": self.current_Y,
@@ -90,6 +92,8 @@ class Scanning:
         await self.check_if_camera_is_home()
         await self.arduinoClass.change_speed_motor(motor="Mold", speed=500)
         await self.arduinoClass.change_speed_motor(motor="Camera", speed=300)
+
+        self.scanner_camera.reset()
 
         try:
             X_Total = int(X_Total)
@@ -153,7 +157,7 @@ class Scanning:
                 half_X_Steps = total_X_Steps % int(self.X_Movement * self.Steps_per_cm_wheel)
 
             # Add the initial half-step to the movement plan
-            movement_plan.append({"axis": "X", "steps": half_X_Steps})
+            movement_plan.append({"axis": "X", "steps": -half_X_Steps})
 
             # Calculate the steps for each full movement in X and Y directions
             X_Steps = int(self.X_Movement * self.Steps_per_cm_wheel)

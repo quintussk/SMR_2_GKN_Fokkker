@@ -29,8 +29,8 @@ image_dir = 'c:/Users/ihsan/Documents/SMR_2_GKN_Fokkker/images'
 os.makedirs(image_dir, exist_ok=True)
 
 @app.route('/video_feed')
-# def video_feed_rgb():
-#     return Response(camera_feed.generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+def video_feed_rgb():
+    return Response(scanner.generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
 @app.route('/')
 def index():
