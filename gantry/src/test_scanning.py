@@ -14,8 +14,8 @@ class Scanner:
         self.frame_height = 1080  # Hoogte van de frame
 
         # Scanning-instellingen
-        self.scan_speed = 0.5  # Bewegingstijd tussen frames (in seconden)
-        self.overlap = 20  # Pixels overlap tussen frames (verlaagd voor minder overlap)
+        self.scan_speed = 0.85  # Bewegingstijd tussen frames (in seconden)
+        self.overlap = 60  # Pixels overlap tussen frames (verlaagd voor minder overlap)
         self.crop_percentage = 0.3  # Percentage van beeldbreedte dat wordt gebruikt
 
         path_model = Path(__file__).parent / "best.pt"
@@ -144,15 +144,15 @@ class Scanner:
             # Wacht een beetje voor de volgende beweging
             time.sleep(self.scan_speed)
 
-        results = self.yolo_model(stitched_image)
+        # results = self.yolo_model(stitched_image)
 
-        for result in results:
-                boxes = result.boxes  # Haal de bounding boxes op
-                for box in boxes:
-                    # Verkrijg de coördinaten van de bounding box
-                    x1, y1, x2, y2 = map(int, box.xyxy[0])  # Converteer naar integers
-                    # Teken alleen de bounding box op het frame
-                    cv2.rectangle(stitched_image, (x1, y1), (x2, y2), (0, 255, 0), 2)  # Groen met dikte 2
+        # for result in results:
+        #         boxes = result.boxes  # Haal de bounding boxes op
+        #         for box in boxes:
+        #             # Verkrijg de coördinaten van de bounding box
+        #             x1, y1, x2, y2 = map(int, box.xyxy[0])  # Converteer naar integers
+        #             # Teken alleen de bounding box op het frame
+        #             cv2.rectangle(stitched_image, (x1, y1), (x2, y2), (0, 255, 0), 2)  # Groen met dikte 2
         
         # Sla het gestitchte beeld op
         if stitched_image is not None:
@@ -190,11 +190,11 @@ async def main():
     await arduino.Relay("ON")
     await scanner.check_if_camera_is_home()
     await arduino.change_speed_motor(motor="Mold", speed=500)
-    await arduino.change_speed_motor(motor="Camera", speed=600)  # Verhoogde snelheid
+    await arduino.change_speed_motor(motor="Camera", speed=300)  # Verhoogde snelheid
 
     await arduino.send_steps(0, steps)  # Send steps to Arduino
     try:
-        scanner.scan_start(duration=5)  # Scan 5 seconden
+        scanner.scan_start(duration=10)  # Scan 5 seconden
     finally:
         scanner.release()
 
